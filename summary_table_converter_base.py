@@ -5,7 +5,7 @@ This is a base class to define summary table convertors for
 taking raw census data and converting it to standard summary tables
 """
 
-def SummaryTableConverterBase:
+class SummaryTableConverterBase:
 
     def __init__(input_params, raw_data = None):
         print("This is the base class and should not be directly called")
