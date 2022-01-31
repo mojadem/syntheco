@@ -55,6 +55,7 @@ class InputParams:
                 return _yml
             except Exception as err:
                 print("error: {}".format(err))
+                raise
         except Exception as err:
             print("InputParams Error, Unable to read input file {}\n{}".format(self.input_file,err))
 

@@ -11,18 +11,16 @@ be completely independent from where the data comes
 import pandas as pd
 
 class SummaryTable:
-    def __init__(summary_variables_ = None, geo_unit = None, data = pd.DataFrame()):
+    def __init__(self, summary_variables_ = None, geo_unit = None,
+                 converter_ = None, data_ = pd.DataFrame()):
         """
         Creation Operator
         """
 
         self.summary_variables = summary_variables_
         self.geo_unit = geo_unit_
-        self.data = data
-
-        if self.validate():
-
-
+        self.data = data_
+        self.converter = converter_
 
     def validate(self):
         """
