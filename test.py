@@ -7,3 +7,6 @@ ip = InputParams('canada.yaml')
 print(ip)
 
 can_converter = canada_global_table_converter(ip)
+gt = GlobalTables(can_converter.geo_level, can_converter)
+
+print("{}".format(str(gt)))

@@ -20,9 +20,7 @@ class GlobalTables:
         """
         self.geo_unit = geo_unit_
         self.converter = converter_
-        self.data = data_
-        self.total_population_by_geo_df, self.total_household_by_geo_df = \
-                                                        self.converter.convert()
+        self.data = self.converter.convert()
 
     def validate(self):
         """
@@ -30,3 +28,12 @@ class GlobalTables:
         """
 
         return True
+
+    def __str__(self):
+        """
+        This method returns a nice print out of the GlobalTables
+        """
+
+        return '\n'.join(["Global Tables",
+                          "------------------------------------------------------"] +\
+                          ["{}\n{}".format(x.name,x) for x in self.data.values()])

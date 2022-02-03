@@ -28,11 +28,91 @@ class canada_global_table_converter(ConverterBase):
                               & (chunk['CENSUS_YEAR'] == self.census_year)]
                           for chunk in prof_iter])
 
-    def clean_data(self):
-        return pd.DataFrame()
+    def pre_transform_clean_data(self):
+        """
+        pre_transform_clean_data:
+
+        Required function that does any cleaning of the data that needs to be done
+        prior to the transformation step.
+
+        This sets the stage to return a dictionary with two dataframes, one for the
+        total population and one for the number of households per the high resolution
+        geographic unit of interest.
+
+        Returns:
+            The function updates the instance member processed_data_df
+        """
+
+        self.processed_data_df =  {"total_population_by_geo":self.raw_data_df.copy(),
+                                   "number_households_by_geo":self.raw_data_df.copy()}
+        return True
+
+    def transform(self):
+        """
+        transform
+
+        This function actually transforms the raw data from the canadian census profile
+        and derives the dataframes for the total population and total number_households
+
+        Returns:
+            The function updates the instance member processed_data_df
+        """
 
 
-# class canada_summary_table_converter(ConverterBase):
+        ### total population table
+        pop_df = self.processed_data_df['total_population_by_geo']
+        pop_df = pop_df[(pop_df['DIM: Profile of Census Tracts (2247)'] == "Population, 2016")]
+        pop_df = pop_df.drop(columns= ["DIM: Profile of Census Tracts (2247)",
+                                       "Dim: Sex (3): Member ID: [2]: Male",
+                                       "Dim: Sex (3): Member ID: [3]: Female",
+                                       "GNR","GNR_LF","ALT_GEO_CODE",
+                                       "Member ID: Profile of Census Tracts (2247)",
+                                       "DATA_QUALITY_FLAG"])
+        pop_df = pop_df\
+                 .rename(columns = {'Dim: Sex (3): Member ID: [1]: Total - Sex':'total',
+                                    'GEO_CODE (POR)':'GEO_CODE'})
+        pop_df.name = "Total Population by High Resolution Geo Unit"
+
+        self.processed_data_df['total_population_by_geo'] = pop_df
+        ### total number of houshold data
+        nh_df = self.processed_data_df['number_households_by_geo']
+        nh_df = nh_df[(nh_df['DIM: Profile of Census Tracts (2247)'] == "Total private dwellings")]
+        nh_df = nh_df.drop(columns= ["DIM: Profile of Census Tracts (2247)",
+                                     "Dim: Sex (3): Member ID: [2]: Male",
+                                     "Dim: Sex (3): Member ID: [3]: Female",
+                                     "GNR","GNR_LF","ALT_GEO_CODE",
+                                     "Member ID: Profile of Census Tracts (2247)",
+                                     "DATA_QUALITY_FLAG"])
+        nh_df = nh_df\
+                 .rename(columns = {'Dim: Sex (3): Member ID: [1]: Total - Sex':'total',
+                                    'GEO_CODE (POR)':'GEO_CODE'})
+        nh_df.name = "Number of Households by High Resolution Geo Unit"
+        
+        self.processed_data_df['number_households_by_geo'] = nh_df
+        return True
+
+    def post_transform_clean_data(self):
+        """
+        This function performs post transformation cleaning on the data.
+
+        Returns:
+            The function updates the instance member processed_data_df
+        """
+
+
+        pop_df = self.processed_data_df['total_population_by_geo']
+        nh_df = self.processed_data_df['number_households_by_geo']
+
+        ### Fix .. values, for now convert them to zero
+        pop_df['total'] = pd.to_numeric(pop_df['total'],downcast='float',errors='coerce').fillna(0.0)
+        pop_df = pop_df.set_index('GEO_CODE')
+
+        ### Fix .. values, for now convert them to zero
+        nh_df['total'] = pd.to_numeric(nh_df['total'],downcast='float',errors='coerce').fillna(0.0)
+        nh_df = nh_df.set_index('GEO_CODE')
+
+        return True
+
 #     def __init__(self, input_params):
 #         super(ConverterBase,self).__init__()
 #         self.input_file_dict = {"profile_data_csv": input_params['census_profile_data_csv']}

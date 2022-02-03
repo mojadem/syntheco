@@ -33,7 +33,7 @@ class ConverterBase:
         """
         #self.input_file_dict = {"census_summary_data": None}
         self.raw_data_df = pd.DataFrame()
-        self.clean_data_df = pd.DataFrame()
+        self.processed_data_df = pd.DataFrame()
         print("This is the base class and should not be directly called")
         return
 
@@ -44,24 +44,33 @@ class ConverterBase:
         print("This is being called from the base class")
         return pd.DataFrame()
 
-    def clean_data(self):
+    def pre_transform_clean_data(self):
         '''
         TODO: Make this real error handling
         '''
         print("This is being called from the base class")
-        return
+        return False
+
+    def post_transform_clean_data(self):
+        '''
+        TODO: Make this real error handling
+        '''
+        print("This is being called from the base class")
+        return False
 
     def transform(self):
         '''
         TODO: Make this real error handling
         '''
         print("This is being called from the base class")
-        return
+        return False
 
     def extract_variable_data(self, variable_):
         print("This is being called from the base class")
         return
 
     def convert(self):
-        clean_df = self.clean_data()
-        return self.transform()
+        self.pre_transform_clean_data()
+        self.transform()
+        self.post_transform_clean_data()
+        return self.processed_data_df
