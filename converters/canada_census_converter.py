@@ -1,23 +1,56 @@
-from converters.converter_base import ConverterBase
+"""
+canada_census_converter
+
+Concrete class for converting Canadian Census Files to Syntheco ready data
+"""
+
+
 import pandas as pd
+from converters.converter_base import ConverterBase
 
 _required_files = ['profile_data_csv']
 
-class canada_global_table_converter(ConverterBase):
+class CanadaCensusGlobalTableConverter(ConverterBase):
+    """
+    CanadaCensusGlobalTableConverter class
+
+    This a the concrete class for creating global tables from
+    Canadian Census Data.
+
+    This holds at the moment the following tables:
+
+        - total_population_by_geo - the total population for each of the
+                                    high resolution geographic areas
+        - number_households_by_geo - the number of households for each
+                                     of the high resolution geograpic areas
+    """
+
+
     def __init__(self, input_):
+        """
+        Creation operator
+        """
+
+        super().__init__(input_)
         self.census_year = input_.input_params['census_year']
         self.cma = input_.input_params['census_low_res_geo_unit']
         self.geo_level = input_.input_params['census_high_res_geo_unit']
         self.profile_data_csv = input_.input_params['census_input_files']['profile_data_csv']
         self.raw_data_df = self._read_raw_data_into_pandas()
-        super(ConverterBase,self).__init__()
+        self.processed_data_df = pd.DataFrame()
+
 
     def _read_raw_data_into_pandas(self):
         """
         _read_raw_data_into_pandas
         Private member that reads defines how the raw data is read into pandas
         data frame for the conversion
+
+        Returns:
+            returns the raw data table from the canadian census profile data
         """
+
+
         prof_iter = pd.read_csv(self.profile_data_csv,
                                  iterator = True,
                                  dtype = {'GEO_CODE (POR)':str,
@@ -42,6 +75,7 @@ class canada_global_table_converter(ConverterBase):
         Returns:
             The function updates the instance member processed_data_df
         """
+
 
         self.processed_data_df =  {"total_population_by_geo":self.raw_data_df.copy(),
                                    "number_households_by_geo":self.raw_data_df.copy()}
@@ -87,7 +121,7 @@ class canada_global_table_converter(ConverterBase):
                  .rename(columns = {'Dim: Sex (3): Member ID: [1]: Total - Sex':'total',
                                     'GEO_CODE (POR)':'GEO_CODE'})
         nh_df.name = "Number of Households by High Resolution Geo Unit"
-        
+
         self.processed_data_df['number_households_by_geo'] = nh_df
         return True
 
@@ -139,19 +173,3 @@ class canada_global_table_converter(ConverterBase):
 #                               & (chunk['GEO_LEVEL'] == 2) \
 #                               & (chunk['CENSUS_YEAR'] == 2016)]
 #                           for chunk in prof_iter])
-
-if __name__ == "__main__":
-    import sys
-    sys.path.append("..")
-
-    from global_tables import GlobalTables
-    from input import InputParams
-
-
-
-    ip = InputParams('canada.yaml')
-    print(ip)
-    can_converter = canada_global_table_converter(ip)
-
-    gt = GlobalTables(geo_unit_ = 2,
-                      converter_= can_converter)

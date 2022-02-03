@@ -4,17 +4,19 @@ global_tables
 This is a class to hold the standard tables that are needed across
 the synthetic ecosystem generation process.
 
-Tables currently include:
+"""
 
- - Total Population by geographic area
- - Total number of households per geographic area
- """
-import pandas as pd
-from converters.converter_base import ConverterBase
 
 class GlobalTables:
-    def __init__(self, geo_unit_ = None, converter_ = None,
-                 data_ = pd.DataFrame()):
+    """
+    GlobalTables class
+
+    This is a class to hold the standard tables needed for various aspects
+    of the Syntheco ecosystem generation system.
+    """
+
+
+    def __init__(self, geo_unit_ = None, converter_ = None):
         """
         Creation operator
         """
@@ -22,12 +24,6 @@ class GlobalTables:
         self.converter = converter_
         self.data = self.converter.convert()
 
-    def validate(self):
-        """
-        This is a function that will validate the data for the Global Tables
-        """
-
-        return True
 
     def __str__(self):
         """
@@ -36,4 +32,4 @@ class GlobalTables:
 
         return '\n'.join(["Global Tables",
                           "------------------------------------------------------"] +\
-                          ["{}\n{}".format(x.name,x) for x in self.data.values()])
+                          [f"{x.name}\n{x}" for x in self.data.values()])
