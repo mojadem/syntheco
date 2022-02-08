@@ -14,9 +14,7 @@ class GlobalTables:
     This is a class to hold the standard tables needed for various aspects
     of the Syntheco ecosystem generation system.
     """
-
-
-    def __init__(self, geo_unit_ = None, converter_ = None):
+    def __init__(self, geo_unit_=None, converter_=None):
         """
         Creation operator
         """
@@ -24,12 +22,10 @@ class GlobalTables:
         self.converter = converter_
         self.data = self.converter.convert()
 
-
     def __str__(self):
         """
         This method returns a nice print out of the GlobalTables
         """
-
         return '\n'.join(["Global Tables",
-                          "------------------------------------------------------"] +\
-                          [f"{x.name}\n{x}" for x in self.data.values()])
+                          "------------------------------------------------------"] +
+                         [f"{x.name}\n{x}" for x in self.data.values()])

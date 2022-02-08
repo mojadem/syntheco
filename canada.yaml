@@ -1,5 +1,5 @@
 'census_year': 2016
-'census_converter': 'canada_census'
+'census_converter': 'canada'
 'census_high_res_geo_unit': 2
 'census_low_res_geo_unit': 462
 'census_input_files':
