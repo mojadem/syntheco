@@ -16,9 +16,7 @@ class InputParams:
     This class reads an input file for Syntheco and does all of the validation
     checking.
     """
-
-
-    def __init__(self, input_file = "input.yml", input_schema_= input_schema._schema):
+    def __init__(self, input_file="input.yml", input_schema_=input_schema._schema):
         """
         Instance Constructor
 
@@ -49,7 +47,7 @@ class InputParams:
         _yml = None
         try:
             with open(self.input_file, "rb") as yaml_file:
-                _yml = yaml.load(yaml_file,yaml.Loader)
+                _yml = yaml.load(yaml_file, yaml.Loader)
             try:
                 self.schema.validate(_yml)
                 return _yml
@@ -57,11 +55,12 @@ class InputParams:
                 print("error: {}".format(err))
                 raise
         except Exception as err:
-            print("InputParams Error, Unable to read input file {}\n{}".format(self.input_file,err))
+            print("InputParams Error, Unable to read input file {}\n{}".format(self.input_file, err))
 
     def __str__(self):
         pp_print = pprint.PrettyPrinter(indent=4)
         return pp_print.pformat(self.input_params)
+
 
 """
 For Testing
