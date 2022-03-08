@@ -14,13 +14,13 @@ class CanadaCensusGlobalPlugin:
     canada_census_global_conveter
 
     This is class that houses the implemented hooks for the canada census plugins
-    for global Tables
+    for global tables
     """
     @hookimpl
     def read_raw_data_into_pandas(cens_conv_inst):
         """
         _read_raw_data_into_pandas
-        Private member that reads defines how the raw data is read into pandas
+        Private member that defines how the raw data is read into pandas
         data frame for the conversion
 
         Returns:
