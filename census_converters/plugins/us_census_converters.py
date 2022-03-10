@@ -28,13 +28,13 @@ class USCensusGlobalPlugin:
         Returns:
             returns the raw data table from the us census data
         """
-        #TODO: implement input file compatability
+        # TODO: implement input file compatability
 
         url = 'https://api.census.gov/data/2020/dec/pl'
         params = {'get': 'P1_001N,H1_001N', 'for': 'tract:*', 'in': 'state:10 county:*'} # initial testing data
 
         response = requests.get(url, params)
-        raw_df = pd.read_json(response.url)
+        raw_df = pd.read_json(response.url) # TODO: add chunks
 
         raw_df, raw_df.columns = raw_df[1:], raw_df.iloc[0] # adjust first row to header row
 
@@ -105,3 +105,34 @@ class USCensusGlobalPlugin:
         proc_df = {"total_population_by_geo": pop_df, 
                    "number_households_by_geo": nh_df}
         return proc_df
+
+
+class USCensusSummaryPlugin:
+    """
+    us_census_summary_converter
+
+    This is class that houses the implemented hooks for the us census plugins
+    for summary tables
+    """
+    @hookimpl
+    def read_raw_data_into_pandas(cens_conv_inst):
+        """
+        _read_raw_data_into_pandas
+        Private member that defines how the raw data is read into pandas
+        data frame for the conversion
+
+        Returns:
+            returns the raw data table from the us census data
+        """
+        # TODO: implement input file compatability
+
+        url = 'https://api.census.gov/data/2019/acs/acs1/pums'
+        pums_vars = ['AGEP', 'BDSP', 'YBL', 'PINCP', 'HHT', 'TYPE', 'TEN', 'NP']
+        params = {'get': ','.join(pums_vars), 'for': 'state:10'} # initial testing data
+
+        response = requests.get(url, params)
+        raw_df = pd.read_json(response.url) # TODO: add chunks
+
+        raw_df, raw_df.columns = raw_df[1:], raw_df.iloc[0] # adjust first row to header row
+
+        return raw_df
