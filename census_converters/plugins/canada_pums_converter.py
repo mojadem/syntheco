@@ -252,6 +252,7 @@ class CanadaCensusPUMSConverter(ConverterBase):
         #self.pums_structures = input_.input_params['census_input_files']['pums_structures.json'] currently being created above
         self.raw_data_df = self._read_raw_data_into_pandas()
         self.processed_data_df = pd.DataFrame()
+	self.fitting_variables = input_.input_params['fitting_vars']
 
 	def _read_raw_data_into_pandas(self):
 	"""
@@ -281,7 +282,7 @@ class CanadaCensusPUMSConverter(ConverterBase):
     
         # draws from pums structure file for chosen variables and excludes pums type 'special' (will be handled separately)
         processed_data_df = raw_data_df[['HH_ID','EF_ID','CF_ID','PP_ID', 'CF_RP', 'WEIGHT'] + \
-                                [x for x in fitting_vars if pums_data_structures[x]['pums_type'] != "special"]]
+                                [x for x in self.fitting_variables if pums_data_structures[x]['pums_type'] != "special"]]
     
         # selecting Census Family Rep 1 or 3 to represent household
         self.processed_data_df = self.raw_data_df[(self.raw_data_df['CF_RP'] != 2)]
@@ -308,20 +309,20 @@ class CanadaCensusPUMSConverter(ConverterBase):
                                                         else 5, axis=1)
 
         ### Renaming columns 
-        processed_data_df = processed_data_df.rename(columns = {x:"{}_V".format(x) for x in fitting_vars})
-        processed_data_df = processed_data_df.rename(columns = {"{}_m".format(x):x for x in fitting_vars})
+        processed_data_df = processed_data_df.rename(columns = {x:"{}_V".format(x) for x in self.fitting_variables})
+        processed_data_df = processed_data_df.rename(columns = {"{}_m".format(x):x for x in self.fitting_variables})
     
         # another round of removing NA
         processed_data_df = processed_data_df.dropna()
     
         # create freq table by grouping by fitting var and calculating totals
         processed_data_df = processed_data_df.reset_index()
-        pums_freq_df = processed_data_df.groupby(fitting_vars).size()
+        pums_freq_df = processed_data_df.groupby(self.fitting_variables).size()
         pums_freq_df = pums_freq_df.reset_index() \
                            .rename(columns={0:"total"})
         pums_freq_df['total'] = pums_freq_df['total'].astype(np.float64)
 
-        pums_freq_df = pums_freq_df.astype({x:"int64" for x in fitting_vars})
+        pums_freq_df = pums_freq_df.astype({x:"int64" for x in self.fitting_variables})
         
     
         return TRUE
