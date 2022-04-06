@@ -15,7 +15,8 @@ _schema = Schema({
                                    #                      error = "Invalid census_converter"),
     'census_input_files': And(dict,
                               {str: lambda x: os.path.exists(x)},
-                              error="Invald Census Input Files")
+                              error="Invald Census Input Files"),
+    'census_fitting_vars': And([str])
     })
 
 """

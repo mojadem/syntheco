@@ -7,6 +7,7 @@ import argparse
 from census_converters.census_converter import CensusConverter
 from input import InputParams
 from global_tables import GlobalTables
+from pums_data_tables import PUMSDataTables
 
 
 def main():
@@ -30,13 +31,17 @@ def main():
     args = parser.parse_args()
 
     ip = InputParams(args.input_file)
-
     census_conv = ip.input_params['census_converter']
-    glob_table_conv = CensusConverter(ip, census_conv, "global")
 
+    glob_table_conv = CensusConverter(ip, census_conv, "global")
+    pums_table_conv = CensusConverter(ip, census_conv, "pums")
+
+    pums_heir_tables = PUMSDataTables(geo_unit_=ip.input_params['census_low_res_geo_unit'],
+                                      converter_=pums_table_conv)
     global_tables = GlobalTables(geo_unit_=ip.input_params['census_high_res_geo_unit'],
                                  converter_=glob_table_conv)
 
+    print(f"{pums_heir_tables}")
     print(f"{global_tables}")
 
 
