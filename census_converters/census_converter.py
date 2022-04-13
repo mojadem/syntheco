@@ -23,7 +23,7 @@ plugin_map = {'canada': {'module': "census_converters.plugins.canada_census_conv
                          'global': "CanadaCensusGlobalPlugin",
                          'metadata_json': "{}/plugins/canada_pums_info.json".format(Path(__file__).parent),
                          'pums': "CanadaCensusPUMSPlugin",
-                         'summary': "canada_census_summary_converter"},
+                         'summary': "CanadaCensusSummaryPlugin"},
               'us': {'module': 'census_converters.plugins.us_census_converters',
                      'global': 'us_census_global_converter',
                      'summary': 'us_census_summary_converter'}}
@@ -61,7 +61,7 @@ class CensusConverter:
     Skeleton class for the plugin framework for conveting census
     data to Syntheco data standards
     """
-    def __init__(self, input_params, census_converter, table_type):
+    def __init__(self, input_params, census_converter, table_type, _global_tables=None):
         """
         Constructor
 
@@ -74,8 +74,10 @@ class CensusConverter:
             An instance of CensusConverter
         """
         self.input_params = input_params
+        self.global_tables = _global_tables
         plug_manager = initialize(census_converter, table_type)
-        self.metadata_json = json.load(open(plugin_map[census_converter]['metadata_json'], "r"))
+        self.metadata_json = json.load(open(plugin_map[census_converter]['metadata_json'], "r"),
+                                       parse_int=str)
         self.hook = plug_manager.hook
         self.raw_data_df = self.read_raw_data_into_pandas()
         self.processed_data_df = pd.DataFrame()

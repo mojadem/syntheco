@@ -25,6 +25,6 @@ class PUMSDataTables:
         """
         This method returns a nice print out of the GlobalTables
         """
-        return '\n'.join(["Global Tables",
+        return '\n'.join(["PUMS Tables",
                           "------------------------------------------------------"] +
                          [f"{x.name}\n{x}" for x in self.data.values()])
