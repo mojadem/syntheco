@@ -7,6 +7,8 @@ import argparse
 from census_converters.census_converter import CensusConverter
 from input import InputParams
 from global_tables import GlobalTables
+from pums_data_tables import PUMSDataTables
+from summary_data_tables import SummaryDataTables
 
 
 def main():
@@ -30,14 +32,26 @@ def main():
     args = parser.parse_args()
 
     ip = InputParams(args.input_file)
-
+    print("input = {}".format(ip.input_params))
     census_conv = ip.input_params['census_converter']
-    glob_table_conv = CensusConverter(ip, census_conv, "global")
 
+    glob_table_conv = CensusConverter(ip, census_conv, "global")
     global_tables = GlobalTables(geo_unit_=ip.input_params['census_high_res_geo_unit'],
                                  converter_=glob_table_conv)
+    print("Global Tables Created")
+    pums_table_conv = CensusConverter(ip, census_conv, "pums")
+    summary_table_conv = CensusConverter(ip, census_conv, "summary",
+                                         _global_tables=global_tables)
+    summary_tables = SummaryDataTables(summary_variables_=ip.input_params['census_fitting_vars'],
+                                       geo_unit_=ip.input_params['census_high_res_geo_unit'],
+                                       converter_=summary_table_conv)
 
+    pums_heir_tables = PUMSDataTables(geo_unit_=ip.input_params['census_low_res_geo_unit'],
+                                      converter_=pums_table_conv)
+
+    print(f"{pums_heir_tables}")
     print(f"{global_tables}")
+    print(f"{summary_tables}")
 
 
 if __name__ == "__main__":
