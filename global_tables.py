@@ -1,7 +1,7 @@
 """
 global_tables
 
-This class holds the standard tables that are needed across
+This class that holds the standard tables that are needed across
 the synthetic ecosystem generation process.
 
 """
