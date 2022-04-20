@@ -22,20 +22,6 @@ class CensusConverterSpec:
         return
 
     @hookimpl
-    def pre_transform_clean_data(cens_conv_inst):
-        """
-        pre_transform_clean_data implmentation spec
-        """
-        return
-
-    @hookimpl
-    def post_transform_clean_data(cens_conv_inst):
-        """
-        post_transform_clean_data implementation spec
-        """
-        return
-
-    @hookimpl
     def transform(cens_conv_inst):
         """
         transform implementation spec
