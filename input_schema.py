@@ -16,7 +16,9 @@ _schema = Schema({
     'census_input_files': And(dict,
                               {str: lambda x: os.path.exists(x)},
                               error="Invald Census Input Files"),
-    'census_fitting_vars': And([str])
+    'census_fitting_vars': And([str]),
+    'output_log_file': And(str),
+    'output_data_log_file': And(str)
     })
 
 """

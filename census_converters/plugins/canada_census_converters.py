@@ -45,25 +45,6 @@ class CanadaCensusGlobalPlugin:
         return raw_df
 
     @hookimpl
-    def pre_transform_clean_data(cens_conv_inst):
-        """
-        pre_transform_clean_data:
-
-        Required function that does any cleaning of the data that needs to be done
-        prior to the transformation step.
-
-        This sets the stage to return a dictionary with two dataframes, one for the
-        total population and one for the number of households per the high resolution
-        geographic unit of interest.
-
-        Returns:
-            The function updates the instance member processed_data_df
-        """
-        proc_df = {"total_population_by_geo": cens_conv_inst.raw_data_df.copy(),
-                   "number_households_by_geo": cens_conv_inst.raw_data_df.copy()}
-        return proc_df
-
-    @hookimpl
     def transform(cens_conv_inst):
         """
         transform
@@ -75,8 +56,8 @@ class CanadaCensusGlobalPlugin:
             An updated dataframe to be set to processed_data_df
         """
         # total population table
-        pop_df = cens_conv_inst.processed_data_df['total_population_by_geo']
-        pop_df = pop_df[(pop_df['DIM: Profile of Census Tracts (2247)'] == "Population, 2016")]
+        raw_df = cens_conv_inst.raw_data_df
+        pop_df = raw_df[(raw_df['DIM: Profile of Census Tracts (2247)'] == "Population, 2016")]
         pop_df = pop_df.drop(columns=["DIM: Profile of Census Tracts (2247)",
                                       "Dim: Sex (3): Member ID: [2]: Male",
                                       "Dim: Sex (3): Member ID: [3]: Female",
@@ -85,10 +66,9 @@ class CanadaCensusGlobalPlugin:
                                       "DATA_QUALITY_FLAG"])
         pop_df = pop_df.rename(columns={'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total',
                                         'GEO_CODE (POR)': 'GEO_CODE'})
-        cens_conv_inst.processed_data_df['total_population_by_geo'] = pop_df
+
         # total number of houshold data
-        nh_df = cens_conv_inst.processed_data_df['number_households_by_geo']
-        nh_df = nh_df[(nh_df['DIM: Profile of Census Tracts (2247)'] == "Total private dwellings")]
+        nh_df = raw_df[(raw_df['DIM: Profile of Census Tracts (2247)'] == "Total private dwellings")]
         nh_df = nh_df.drop(columns=["DIM: Profile of Census Tracts (2247)",
                                     "Dim: Sex (3): Member ID: [2]: Male",
                                     "Dim: Sex (3): Member ID: [3]: Female",
@@ -97,21 +77,6 @@ class CanadaCensusGlobalPlugin:
                                     "DATA_QUALITY_FLAG"])
         nh_df = nh_df.rename(columns={'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total',
                                       'GEO_CODE (POR)': 'GEO_CODE'})
-
-        return {"total_population_by_geo": pop_df,
-                "number_households_by_geo": nh_df}
-
-    @hookimpl
-    def post_transform_clean_data(cens_conv_inst):
-        """
-        This function performs post transformation cleaning on the data.
-
-        Returns:
-            The function updates the instance member processed_data_df
-        """
-
-        pop_df = cens_conv_inst.processed_data_df['total_population_by_geo']
-        nh_df = cens_conv_inst.processed_data_df['number_households_by_geo']
 
         # Fix .. values, for now convert them to zero
         pop_df['total'] = pd.to_numeric(pop_df['total'], downcast='float', errors='coerce').fillna(0.0)
@@ -124,7 +89,7 @@ class CanadaCensusGlobalPlugin:
         nh_df.name = "Number of Households by High Resolution Geo Unit"
 
         return {"total_population_by_geo": pop_df,
-                "number_housholds_by_geo": nh_df}
+                "number_households_by_geo": nh_df}
 
 
 class CanadaCensusSummaryPlugin:
@@ -167,10 +132,6 @@ class CanadaCensusSummaryPlugin:
                                   & (chunk['CENSUS_YEAR'] == census_year)]
                             for chunk in prof_iter])
         return raw_df
-
-    @hookimpl
-    def pre_transform_clean_data(cens_conv_inst):
-        return cens_conv_inst.raw_data_df
 
     @hookimpl
     def transform(cens_conv_inst):
@@ -245,10 +206,6 @@ class CanadaCensusSummaryPlugin:
 
         return sum_tables
 
-    @hookimpl
-    def post_transform_clean_data(cens_conv_inst):
-        return cens_conv_inst.processed_data_df
-
 
 class CanadaCensusPUMSPlugin:
     """
@@ -275,20 +232,6 @@ class CanadaCensusPUMSPlugin:
 
         raw_df = pd.concat([chunk[(chunk['CMA'].str.find(str(low_res_geo), 0) == 0)] for chunk in pums_iter])
         return raw_df
-
-    @hookimpl
-    def pre_transform_clean_data(cens_conv_inst):
-        """
-        pre_transform_clean_data
-        Does data cleaning before the data is being transformed to the right format
-        Input: pandas df with raw PUMS data called raw_data_df
-        Output: pandas df with raw PUMS data which has been cleaned from missing values called processed_data_df
-        """
-
-        # Not relly anything to do before transformation of this data.
-        proc_df = {"categorical_table": None,
-                   "frequency_table": None}
-        return proc_df
 
     @hookimpl
     def transform(cens_conv_inst):
@@ -353,27 +296,13 @@ class CanadaCensusPUMSPlugin:
 
             pums_freq_df = pums_freq_df.astype({x: "int64" for x in fitting_variables})
 
+            processed_data_df.name = "PUMS Data Categorical Representation"
+            pums_freq_df.name = "PUMS Data Frequency Representation"
+
             return {"categorical_table": processed_data_df,
                     "frequency_table": pums_freq_df}
         except Exception as e:
             print("There was an error: {}".format(str(e)))
-
-    @hookimpl
-    def post_transform_clean_data(cens_conv_inst):
-        """
-        This function performs post transformation cleaning on the data.
-
-        Returns:
-            The function updates the instance member processed_data_df
-        """
-        cat_df = cens_conv_inst.processed_data_df['categorical_table']
-        cat_df.name = "PUMS Data Categorical Representation"
-
-        freq_df = cens_conv_inst.processed_data_df['frequency_table']
-        freq_df.name = "PUMS Data Frequency Representation"
-
-        return {"categorical_table": cat_df,
-                "frequency_table": freq_df}
 
     # Special function for dealing with HHSIZE variables
     @staticmethod

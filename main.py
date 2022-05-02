@@ -9,6 +9,7 @@ from input import InputParams
 from global_tables import GlobalTables
 from pums_data_tables import PUMSDataTables
 from summary_data_tables import SummaryDataTables
+from logger import setup_logger, log, data_log
 
 
 def main():
@@ -32,26 +33,48 @@ def main():
     args = parser.parse_args()
 
     ip = InputParams(args.input_file)
-    print("input = {}".format(ip.input_params))
-    census_conv = ip.input_params['census_converter']
 
+    log_level = "INFO"
+    if args.debug:
+        log_level = "DEBUG"
+
+    setup_logger(ip['output_log_file'], ip['output_data_log_file'], log_level)
+
+    log("INFO", "----------------------------------------------------------------------")
+    log("INFO", " Beginning SynthEco Run")
+    log("INFO", "----------------------------------------------------------------------")
+    log("INFO", "Input File = {}".format(args.input_file))
+    log("INFO", "Input Params = {}".format(ip))
+
+    data_log("----------------------------------------------------------------------")
+    data_log(" Beginning SynthEco Run")
+    data_log("----------------------------------------------------------------------")
+
+    census_conv = ip['census_converter']
+
+    log("INFO", "Setting Up Global Converters")
     glob_table_conv = CensusConverter(ip, census_conv, "global")
-    global_tables = GlobalTables(geo_unit_=ip.input_params['census_high_res_geo_unit'],
+    log("INFO", "Creating Global Tables")
+    global_tables = GlobalTables(geo_unit_=ip['census_high_res_geo_unit'],
                                  converter_=glob_table_conv)
-    print("Global Tables Created")
+    log("INFO", "Global Tables Created")
+
+    log("INFO", "Setting up Census Converters")
     pums_table_conv = CensusConverter(ip, census_conv, "pums")
     summary_table_conv = CensusConverter(ip, census_conv, "summary",
                                          _global_tables=global_tables)
-    summary_tables = SummaryDataTables(summary_variables_=ip.input_params['census_fitting_vars'],
-                                       geo_unit_=ip.input_params['census_high_res_geo_unit'],
+    log("INFO", "Creating Census Data Tables")
+    summary_tables = SummaryDataTables(summary_variables_=ip['census_fitting_vars'],
+                                       geo_unit_=ip['census_high_res_geo_unit'],
                                        converter_=summary_table_conv)
 
-    pums_heir_tables = PUMSDataTables(geo_unit_=ip.input_params['census_low_res_geo_unit'],
+    pums_heir_tables = PUMSDataTables(geo_unit_=ip['census_low_res_geo_unit'],
                                       converter_=pums_table_conv)
+    log("INFO", "Done Setting Up Tables")
 
-    print(f"{pums_heir_tables}")
-    print(f"{global_tables}")
-    print(f"{summary_tables}")
+    data_log(f"{pums_heir_tables}")
+    data_log(f"{global_tables}")
+    data_log(f"{summary_tables}")
 
 
 if __name__ == "__main__":
