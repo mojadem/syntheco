@@ -107,12 +107,12 @@ class USCensusGlobalPlugin:
         return proc_df
 
 
-class USCensusSummaryPlugin:
+class USCensusPUMSPlugin:
     """
-    us_census_summary_converter
+    USCensusPUMSPlugin
 
-    This is class that houses the implemented hooks for the us census plugins
-    for summary tables
+    This class houses the implemented hooks for the US census plugins
+    for processed PUMS Tables
     """
     @hookimpl
     def read_raw_data_into_pandas(cens_conv_inst):

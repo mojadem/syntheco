@@ -1,0 +1,245 @@
+{
+    "AGEP": {
+        "longname": "Age",
+        "definition": "",
+        "universe": "",
+        "pums_type": "continuous",
+        "profile_type": "",
+        "sample_type": "",
+        "profile_hh_cats": [],
+        "profile_hh_inds": [],
+        "common_var_map": {
+            "1": {
+                "name": "15 to 24 years",
+                "pums_inds": [15,24],
+                "profile_inds": []
+            },
+            "2": {
+                "name": "25 to 34 years",
+                "pums_inds": [25,34],
+                "profile_inds": []
+            },
+            "3": {
+                "name": "35 to 44 years",
+                "pums_inds": [35,44],
+                "profile_inds": []
+            },
+            "4": {
+                "name": "45 to 54 years",
+                "pums_inds": [45,54],
+                "profile_inds": []
+            },
+            "5": {
+                "name": "55 to 64 years",
+                "pums_inds": [55,64],
+                "profile_inds": []
+            },
+            "6": {
+                "name": "65 to 74 years",
+                "pums_inds": [65,74],
+                "profile_inds": []
+            },
+            "7": {
+                "name": "75 years and over",
+                "pums_inds": [75,99],
+                "profile_inds": []
+            }
+        }
+    },
+    "SCHL": {
+        "longname": "Educational attainment",
+        "definition": "",
+        "universe": "",
+        "pums_type": "categorical",
+        "sample_type": "",
+        "values": {
+            "0": "N/A (less than 3 years old)",
+            "01": "No schooling completed",
+            "02": "Nursery school, preschool",
+            "03": "Kindergarten",
+            "04": "Grade 1",
+            "05": "Grade 2",
+            "06": "Grade 3",
+            "07": "Grade 4",
+            "08": "Grade 5",
+            "09": "Grade 6",
+            "10": "Grade 7",
+            "11": "Grade 8",
+            "12": "Grade 9",
+            "13": "Grade 10",
+            "14": "Grade 11",
+            "15": "12th grade - no diploma",
+            "16": "Regular high school diploma",
+            "17": "GED or alternative credential",
+            "18": "Some college, but less than 1 year",
+            "19": "1 or more years of college credit, no degree",
+            "20": "Associate's degree",
+            "21": "Bachelor's degree",
+            "22": "Master's degree",
+            "23": "Professional degree beyond a bachelor's degree",
+            "24": "Doctorate degree"
+        },
+        "profile_hh_cats": [],
+        "profile_hh_inds": [],
+        "common_var_map": {
+            "1": {
+                "name": "No certificiate, diploma or degree",
+                "pums_inds": [1, 15],
+                "profile_inds": []
+            },
+            "2": {
+                "name": "High school diploma or equivalent",
+                "pums_inds": [16, 19],
+                "profile_inds": []
+            },
+            "3": {
+                "name": "Associate's degree",
+                "pums_inds": [20],
+                "profile_inds": []
+            },
+            "4": {
+                "name": "Bachelor's degree",
+                "pums_inds": [21],
+                "profile_inds": []
+            },
+            "5": {
+                "name": "Master's degree",
+                "pums_inds": [22],
+                "profile_inds": []
+            },
+            "6": {
+                "name": "Docotorate of professional degree",
+                "pums_inds": [23, 24],
+                "profile_inds": []
+            }
+        }
+    },
+    "MAR": {
+        "longname": "Marital status",
+        "definition": "",
+        "universe": "",
+        "pums_type": "categorical",
+        "sample_type": "",
+        "values": {
+            "1": "Married",
+            "2": "Widowed",
+            "3": "Divorced",
+            "4": "Separated",
+            "5": "Never married or under 15 years old"
+        },
+        "profile_hh_cats": [],
+        "profile_hh_inds": [],
+        "common_var_map": {
+            "1": {
+                "name": "Married",
+                "pums_inds": [1],
+                "profile_inds": []
+            },
+            "2": {
+                "name": "Widowed",
+                "pums_inds": [2],
+                "profile_inds": []
+            },
+            "3": {
+                "name": "Divorced",
+                "pums_inds": [3],
+                "profile_inds": []
+            },
+            "4": {
+                "name": "Separated",
+                "pums_inds": [4],
+                "profile_inds": []
+            },
+            "5": {
+                "name": "Never married or under 15 years old",
+                "pums_inds": [5],
+                "profile_inds": []
+            }
+        }
+    },
+    "NP": {
+        "longname": "Number of persons in this household",
+        "definition": "",
+        "universe": "",
+        "pums_type": "continous",
+        "sample_type": "",
+        "profile_hh_cats": [],
+        "profile_hh_inds": [],
+        "common_var_map": {}
+    },
+    "PINCP": {
+        "longname": "Total person's income",
+        "definition": "",
+        "universe": "",
+        "pums_type": "continous",
+        "sample_type": "",
+        "profile_hh_cats": [],
+        "profile_hh_inds": [],
+        "common_var_map": {
+            "1": {
+                "name": "N/A (less than 15 years old)",
+                "pums_inds": [-19999],
+                "profile_inds": []
+            },
+            "2": {
+                "name": "Under $10,0000 (including loss)",
+                "pums_inds": [-19998, 9999],
+                "profile_inds": []
+            },
+            "3": {
+                "name":"10,000 to 19,999",
+                "pums_inds": [10000, 19999],
+                "profile_inds":[2]
+            },
+            "4": {
+                 "name":"20,000 to 29,999",
+                "pums_inds": [20000, 29999],
+                "profile_inds":[3]},
+            "5": {
+                "name":"30,000 to 39,999",
+                "pums_inds":[30000, 39999],
+                "profile_inds": [4]
+            },
+            "6": {
+                "name":"40,000 to 49,999",
+                "pums_inds":[40000, 49999],
+                "profile_inds": [5]
+            },
+            "7": {
+                "name":"50,000 to 59,999",
+                "pums_inds":[50000, 59999],
+                "profile_inds": [6]
+            },
+            "8": {
+                "name":"60,000 to 69,999",
+                "pums_inds":[60000, 69999],
+                "profile_inds": [7]
+            },
+            "9": {
+                "name":"70,000 to 79,999",
+                "pums_inds":[70000, 79999],
+                "profile_inds": [8]
+            },
+            "10": {
+                "name":"80,000 to 89,999",
+                "pums_inds":[80000, 89999],
+                "profile_inds": [9]
+            },
+            "11": {
+                "name":"90,000 to 99,999",
+                "pums_inds":[90000, 99999],
+                "profile_inds": [10]
+            },
+            "12": {
+                "name":"100,000 to 149,999",
+                "pums_inds":[100000, 149999],
+                "profile_inds": [11]
+            },
+            "13": {
+                "name":"150,000 and over",
+                "pums_inds":[150000, 4209995],
+                "profile_inds": [12]
+            }
+        }
+    }
+}
