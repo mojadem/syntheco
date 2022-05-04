@@ -16,6 +16,7 @@ from pathlib import Path
 import os
 
 from census_converters.hookspec import hookspec, CensusConverterSpec
+from logger import log, data_log
 
 # Map dictionary used to translate input commands to the modules needed
 # needed to import
@@ -44,14 +45,20 @@ def initialize(census_converter="canada", table_type="global"):
         A pluggy plugin manager that has been registered with the proper
         implementation plugin.
     """
-
-    plug_manager = pluggy.PluginManager("census_converters")
-    plug_manager.add_hookspecs(CensusConverterSpec)
-    plug_map_entry = plugin_map[census_converter]
-    mod = importlib.import_module(plug_map_entry['module'])
-    plug = getattr(mod, plug_map_entry[table_type])
-    plug_manager.register(plug)
-    return plug_manager
+    log("INFO", "Intitializing Census Converter with {},{} options".format(census_converter,
+                                                                           table_type))
+    try:
+        plug_manager = pluggy.PluginManager("census_converters")
+        plug_manager.add_hookspecs(CensusConverterSpec)
+        plug_map_entry = plugin_map[census_converter]
+        log("DEBUG", "Plugin Map: {}".frmat(plug_map_entry))
+        mod = importlib.import_module(plug_map_entry['module'])
+        plug = getattr(mod, plug_map_entry[table_type])
+        plug_manager.register(plug)
+        return plug_manager
+    except Exception as e:
+        log("ERROR", "{}".format("Census Plugin Failed to Initialize: {}".format(e)))
+        raise e
 
 
 class CensusConverter:
@@ -90,14 +97,6 @@ class CensusConverter:
         """
         return self.hook.read_raw_data_into_pandas(cens_conv_inst=self)[0]
 
-    def pre_transform_clean_data(self):
-        """
-        pre_transform_clean_data
-
-        Stub function that wraps to the plugin specific implementation
-        """
-        return self.hook.pre_transform_clean_data(cens_conv_inst=self)[0]
-
     def transform(self):
         """
         transform
@@ -105,14 +104,6 @@ class CensusConverter:
         Stub function that wraps to the plugin specific implementation
         """
         return self.hook.transform(cens_conv_inst=self)[0]
-
-    def post_transform_clean_data(self):
-        """
-        post_transform_clean_data
-
-        Stub function that wraps to the plugin specific implementation
-        """
-        return self.hook.post_transform_clean_data(cens_conv_inst=self)[0]
 
     def convert(self):
         '''
@@ -127,7 +118,5 @@ class CensusConverter:
             the concrete converter class for details in the "converters"
             directory
         '''
-        self.processed_data_df = self.pre_transform_clean_data()
         self.processed_data_df = self.transform()
-        self.processed_data_df = self.post_transform_clean_data()
         return self.processed_data_df
