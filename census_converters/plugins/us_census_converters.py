@@ -87,8 +87,8 @@ class USCensusPUMSPlugin:
         Returns:
             returns the raw data table from the us census data
         """
-        url = 'https://api.census.gov/data/2019/acs/acs1/pums'
-        pums_vars = cens_conv_inst.input_params.input_params['census_fitting_vars']
+        url = 'https://api.census.gov/data/2020/acs/acs5/pums'
+        pums_vars = ['AGEP', 'SCHL', 'MAR', 'NP', 'HINCP']
         params = {'get': ','.join(pums_vars), 'for': 'state:10'} # initial testing data
 
         response = requests.get(url, params)
@@ -107,15 +107,14 @@ class USCensusPUMSPlugin:
         Output: processed pums_freq_df as pandas df which is now in the correct format as a frequency table
         """
         pums_vars = cens_conv_inst.input_params.input_params['census_fitting_vars']
-        metadata_json = cens_conv_inst.metadata_json
+        pums_ds = cens_conv_inst.metadata_json
         proc_df = cens_conv_inst.raw_data_df.astype(int)
 
-        continuous_pums_vars = [v for v in pums_vars if metadata_json[v]['pums_type'] == 'continuous']
-        for v in continuous_pums_vars:
+        for v in pums_vars:
             new_col_name = f"{v}_m"
             proc_df[new_col_name] = [np.NaN for _ in range(proc_df.shape[0])]
             
-            lookup = [(int(i), c['pums_inds']) for i, c in metadata_json[v]['common_var_map'].items()]
+            lookup = [(int(i), c['pums_inds']) for i, c in pums_ds[v]['common_var_map'].items()]
             for i, c in lookup:
                 if len(c) == 1: # for single indices
                     proc_df.loc[proc_df[v] == c[0], new_col_name] = i
@@ -124,21 +123,19 @@ class USCensusPUMSPlugin:
                     upper = int(c[1])
                     proc_df.loc[(proc_df[v] >= lower) & (proc_df[v] <= upper), new_col_name] = i
 
-        categorical_pums_vars = [v for v in pums_vars if metadata_json[v]['pums_type'] == 'categorical']
-        for v in categorical_pums_vars:
-            new_col_name = f"{v}_m"
-            proc_df[new_col_name] = [np.NaN for _ in range(proc_df.shape[0])]
-            
-            lookup = [(int(i), c['pums_inds']) for i, c in metadata_json[v]['common_var_map'].items()]
-            for i, c in lookup:
-                if len(c) == 1: # for single indices
-                    proc_df.loc[proc_df[v] == c[0], new_col_name] = i
-                else: # for index ranges
-                    lower = int(c[0])
-                    upper = int(c[1])
-                    proc_df.loc[(proc_df[v] >= lower) & (proc_df[v] <= upper), new_col_name] = i
+        proc_df = proc_df \
+            .rename(columns={x: f"{x}_V" for x in pums_vars}) \
+            .rename(columns={f"{x}_m": x for x in pums_vars})
 
-        proc_df = proc_df.rename(columns={x: "{}_V".format(x) for x in pums_vars})
-        proc_df = proc_df.rename(columns={"{}_m".format(x): x for x in pums_vars})
+        freq_df = proc_df\
+            .groupby(pums_vars).size() \
+            .reset_index() \
+            .rename(columns={0: 'total'})
 
-        pums_freq_df = proc_df.groupby(pums_vars).size()
+        freq_df['total'] = freq_df['total'].astype(np.float64)
+        freq_df = freq_df.astype({v: np.int64 for v in pums_vars})
+
+        proc_df.name = "PUMS Data Categorical Representation"
+        freq_df.name = "PUMS Data Frequency Representation"
+        
+        return {"categorical_table": proc_df, "frequency_table": freq_df}
