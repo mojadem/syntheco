@@ -53,21 +53,19 @@ class USCensusGlobalPlugin:
             An updated dataframe to be set to processed_data_df
         """
         # total population table
-        pop_df = cens_conv_inst.raw_data_df.copy()
-        pop_df = pop_df.drop(columns=[column for column in pop_df.columns if column != "P1_001N"])
-        pop_df = pop_df.rename(columns={'P1_001N': 'total'})
-        
+        pop_df = cens_conv_inst.raw_data_df.copy() \
+            .drop(columns=[column for column in pop_df.columns if column != "P1_001N"]) \
+                .rename(columns={'P1_001N': 'total'})
+                
         # total number of households table
-        nh_df = cens_conv_inst.raw_data_df.copy()
-        nh_df = nh_df.drop(columns=[column for column in pop_df.columns if column != "H1_001N"])
-        nh_df = nh_df.rename(columns={'H1_001N': 'total'})
+        nh_df = cens_conv_inst.raw_data_df.copy() \
+            .drop(columns=[column for column in pop_df.columns if column != "H1_001N"]) \
+                .rename(columns={'H1_001N': 'total'})
         
         pop_df.name = "Total Population by High Resolution Geo Unit"
         nh_df.name = "Number of Households by High Resolution Geo Unit"
 
-        proc_df = {"total_population_by_geo": pop_df, 
-                   "number_households_by_geo": nh_df}
-        return proc_df
+        return {"total_population_by_geo": pop_df, "number_households_by_geo": nh_df}
 
 
 class USCensusPUMSPlugin:
@@ -125,12 +123,12 @@ class USCensusPUMSPlugin:
 
         proc_df = proc_df \
             .rename(columns={x: f"{x}_V" for x in pums_vars}) \
-            .rename(columns={f"{x}_m": x for x in pums_vars})
+                .rename(columns={f"{x}_m": x for x in pums_vars})
 
         freq_df = proc_df\
             .groupby(pums_vars).size() \
-            .reset_index() \
-            .rename(columns={0: 'total'})
+                .reset_index() \
+                    .rename(columns={0: 'total'})
 
         freq_df['total'] = freq_df['total'].astype(np.float64)
         freq_df = freq_df.astype({v: np.int64 for v in pums_vars})
