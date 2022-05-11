@@ -161,81 +161,107 @@
         "longname": "Number of persons in this household",
         "definition": "",
         "universe": "",
-        "pums_type": "continous",
-        "sample_type": "",
-        "profile_hh_cats": [],
-        "profile_hh_inds": [],
-        "common_var_map": {}
-    },
-    "PINCP": {
-        "longname": "Total person's income",
-        "definition": "",
-        "universe": "",
-        "pums_type": "continous",
+        "pums_type": "continuous",
         "sample_type": "",
         "profile_hh_cats": [],
         "profile_hh_inds": [],
         "common_var_map": {
             "1": {
-                "name": "N/A (less than 15 years old)",
-                "pums_inds": [-19999],
-                "profile_inds": []
+                "name": "Vacant unit",
+                "pums_inds": [0],
+                "profile_inds": [] 
             },
             "2": {
-                "name": "Under $10,0000 (including loss)",
-                "pums_inds": [-19998, 9999],
+                "name": "1 person in household or any person in group quarters",
+                "pums_inds": [1],
                 "profile_inds": []
             },
             "3": {
+                "name": "2 persons",
+                "pums_inds": [2],
+                "profile_inds": []
+            },
+            "4": {
+                "name": "3 persons",
+                "pums_inds": [3],
+                "profile_inds": []
+            },
+            "5": {
+                "name": "4 persons",
+                "pums_inds": [4],
+                "profile_inds": []
+            },
+            "6": {
+                "name": "5 or more persons",
+                "pums_inds": [5],
+                "profile_inds": []
+            }
+        }
+    },
+    "PINCP": {
+        "longname": "Total person's income",
+        "definition": "",
+        "universe": "",
+        "pums_type": "continuous",
+        "sample_type": "",
+        "profile_hh_cats": [],
+        "profile_hh_inds": [],
+        "common_var_map": {
+            "1": {
+                "name": "Under $10,0000 (including loss), or N/A",
+                "pums_inds": [-19999, 9999],
+                "profile_inds": []
+            },
+            "2": {
                 "name":"10,000 to 19,999",
                 "pums_inds": [10000, 19999],
                 "profile_inds":[2]
             },
-            "4": {
-                 "name":"20,000 to 29,999",
+            "3": {
+                "name":"20,000 to 29,999",
                 "pums_inds": [20000, 29999],
                 "profile_inds":[3]},
-            "5": {
+            "4": {
                 "name":"30,000 to 39,999",
                 "pums_inds":[30000, 39999],
                 "profile_inds": [4]
             },
-            "6": {
+            "5": {
                 "name":"40,000 to 49,999",
                 "pums_inds":[40000, 49999],
                 "profile_inds": [5]
             },
-            "7": {
+            "6": {
                 "name":"50,000 to 59,999",
                 "pums_inds":[50000, 59999],
                 "profile_inds": [6]
             },
-            "8": {
+            "7": {
                 "name":"60,000 to 69,999",
                 "pums_inds":[60000, 69999],
                 "profile_inds": [7]
             },
-            "9": {
+            "8": {
                 "name":"70,000 to 79,999",
                 "pums_inds":[70000, 79999],
                 "profile_inds": [8]
             },
-            "10": {
+            "9": {
                 "name":"80,000 to 89,999",
                 "pums_inds":[80000, 89999],
                 "profile_inds": [9]
             },
-            "11": {
+            "10": {
                 "name":"90,000 to 99,999",
                 "pums_inds":[90000, 99999],
                 "profile_inds": [10]
             },
-            "12": {
+            "11": {
                 "name":"100,000 to 149,999",
                 "pums_inds":[100000, 149999],
                 "profile_inds": [11]
             },
-            "13": {
+            "12": {
                 "name":"150,000 and over",
                 "pums_inds":[150000, 4209995],
                 "profile_inds": [12]

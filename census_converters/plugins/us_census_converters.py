@@ -6,6 +6,7 @@ This is the code for the US Census Plugins
 
 
 import pandas as pd
+import numpy as np
 import requests
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
@@ -39,66 +40,28 @@ class USCensusGlobalPlugin:
         raw_df, raw_df.columns = raw_df[1:], raw_df.iloc[0] # adjust first row to header row
 
         return raw_df
-
-    @hookimpl
-    def pre_transform_clean_data(cens_conv_inst: CensusConverter):
-        """
-        pre_transform_clean_data:
-
-        Required function that does any cleaning of the data that needs to be done
-        prior to the transformation step.
-
-        This sets the stage to return a dictionary with two dataframes, one for the
-        total population and one for the number of households per the high resolution
-        geographic unit of interest.
-
-        Returns:
-            The function updates the instance member processed_data_df
-        """
-        proc_df = {"total_population_by_geo": cens_conv_inst.raw_data_df.copy(),
-                   "number_households_by_geo": cens_conv_inst.raw_data_df.copy()}
-        return proc_df
     
     @hookimpl
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
 
-        This function actually transforms the raw data from the us census data
+        This function actually transforms the raw data from the US census profile
         and derives the dataframes for the total population and total number_households
 
         Returns:
             An updated dataframe to be set to processed_data_df
         """
         # total population table
-        pop_df = cens_conv_inst.processed_data_df['total_population_by_geo']
+        pop_df = cens_conv_inst.raw_data_df.copy()
         pop_df = pop_df.drop(columns=[column for column in pop_df.columns if column != "P1_001N"])
         pop_df = pop_df.rename(columns={'P1_001N': 'total'})
-        cens_conv_inst.processed_data_df['total_population_by_geo'] = pop_df
         
         # total number of households table
-        nh_df = cens_conv_inst.processed_data_df['number_households_by_geo']
+        nh_df = cens_conv_inst.raw_data_df.copy()
         nh_df = nh_df.drop(columns=[column for column in pop_df.columns if column != "H1_001N"])
         nh_df = nh_df.rename(columns={'H1_001N': 'total'})
-        cens_conv_inst.processed_data_df['number_households_by_geo'] = nh_df
         
-        proc_df = {"total_population_by_geo": pop_df, 
-                   "number_households_by_geo": nh_df}
-        return proc_df
-    
-    @hookimpl
-    def post_transform_clean_data(cens_conv_inst):
-        """
-        This function performs post transformation cleaning on the data.
-
-        Returns:
-            The function updates the instance member processed_data_df
-        """
-
-        print(f"type: {cens_conv_inst.processed_data_df}")
-        pop_df = cens_conv_inst.processed_data_df['total_population_by_geo']
-        nh_df = cens_conv_inst.processed_data_df['number_households_by_geo']
-
         pop_df.name = "Total Population by High Resolution Geo Unit"
         nh_df.name = "Number of Households by High Resolution Geo Unit"
 
@@ -124,10 +87,8 @@ class USCensusPUMSPlugin:
         Returns:
             returns the raw data table from the us census data
         """
-        # TODO: implement input file compatability
-
         url = 'https://api.census.gov/data/2019/acs/acs1/pums'
-        pums_vars = ['AGEP', 'BDSP', 'YBL', 'PINCP', 'HHT', 'TYPE', 'TEN', 'NP']
+        pums_vars = cens_conv_inst.input_params.input_params['census_fitting_vars']
         params = {'get': ','.join(pums_vars), 'for': 'state:10'} # initial testing data
 
         response = requests.get(url, params)
@@ -136,3 +97,48 @@ class USCensusPUMSPlugin:
         raw_df, raw_df.columns = raw_df[1:], raw_df.iloc[0] # adjust first row to header row
 
         return raw_df
+    
+    @hookimpl
+    def transform(cens_conv_inst):
+        """
+        transform
+        Data transformations
+        Input: Cleaned and pre-processed pandas df called processed_data_df
+        Output: processed pums_freq_df as pandas df which is now in the correct format as a frequency table
+        """
+        pums_vars = cens_conv_inst.input_params.input_params['census_fitting_vars']
+        metadata_json = cens_conv_inst.metadata_json
+        proc_df = cens_conv_inst.raw_data_df.astype(int)
+
+        continuous_pums_vars = [v for v in pums_vars if metadata_json[v]['pums_type'] == 'continuous']
+        for v in continuous_pums_vars:
+            new_col_name = f"{v}_m"
+            proc_df[new_col_name] = [np.NaN for _ in range(proc_df.shape[0])]
+            
+            lookup = [(int(i), c['pums_inds']) for i, c in metadata_json[v]['common_var_map'].items()]
+            for i, c in lookup:
+                if len(c) == 1: # for single indices
+                    proc_df.loc[proc_df[v] == c[0], new_col_name] = i
+                else: # for index ranges
+                    lower = int(c[0])
+                    upper = int(c[1])
+                    proc_df.loc[(proc_df[v] >= lower) & (proc_df[v] <= upper), new_col_name] = i
+
+        categorical_pums_vars = [v for v in pums_vars if metadata_json[v]['pums_type'] == 'categorical']
+        for v in categorical_pums_vars:
+            new_col_name = f"{v}_m"
+            proc_df[new_col_name] = [np.NaN for _ in range(proc_df.shape[0])]
+            
+            lookup = [(int(i), c['pums_inds']) for i, c in metadata_json[v]['common_var_map'].items()]
+            for i, c in lookup:
+                if len(c) == 1: # for single indices
+                    proc_df.loc[proc_df[v] == c[0], new_col_name] = i
+                else: # for index ranges
+                    lower = int(c[0])
+                    upper = int(c[1])
+                    proc_df.loc[(proc_df[v] >= lower) & (proc_df[v] <= upper), new_col_name] = i
+
+        proc_df = proc_df.rename(columns={x: "{}_V".format(x) for x in pums_vars})
+        proc_df = proc_df.rename(columns={"{}_m".format(x): x for x in pums_vars})
+
+        pums_freq_df = proc_df.groupby(pums_vars).size()

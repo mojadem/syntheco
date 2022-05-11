@@ -1,0 +1,3 @@
+'census_year': 2020
+'census_converter': 'us'
+'census_fitting_vars': ['AGEP', 'SCHL', 'MAR', 'NP', 'PINCP']
