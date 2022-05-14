@@ -51,7 +51,7 @@ def initialize(census_converter="canada", table_type="global"):
         plug_manager = pluggy.PluginManager("census_converters")
         plug_manager.add_hookspecs(CensusConverterSpec)
         plug_map_entry = plugin_map[census_converter]
-        log("DEBUG", "Plugin Map: {}".frmat(plug_map_entry))
+        log("DEBUG", "Plugin Map: {}".format(plug_map_entry))
         mod = importlib.import_module(plug_map_entry['module'])
         plug = getattr(mod, plug_map_entry[table_type])
         plug_manager.register(plug)
