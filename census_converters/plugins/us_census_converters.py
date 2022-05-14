@@ -114,6 +114,7 @@ class USCensusPUMSPlugin:
             
             lookup = [(int(i), c['pums_inds']) for i, c in pums_ds[v]['common_var_map'].items()]
             for i, c in lookup:
+                # NOTE: this assumes indices will either be a single index or range
                 if len(c) == 1: # for single indices
                     proc_df.loc[proc_df[v] == c[0], new_col_name] = i
                 else: # for index ranges
@@ -126,9 +127,10 @@ class USCensusPUMSPlugin:
                 .rename(columns={f"{x}_m": x for x in pums_vars})
 
         freq_df = proc_df\
-            .groupby(pums_vars).size() \
-                .reset_index() \
-                    .rename(columns={0: 'total'})
+            .groupby(pums_vars) \
+                .size() \
+                    .reset_index() \
+                        .rename(columns={0: 'total'})
 
         freq_df['total'] = freq_df['total'].astype(np.float64)
         freq_df = freq_df.astype({v: np.int64 for v in pums_vars})
