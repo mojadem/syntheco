@@ -244,7 +244,7 @@ class USCensusPUMSPlugin:
             ]
             for i, c in lookup:
                 if len(c) == 1:  # for single indices
-                    proc_df.loc[proc_df[v] == c[0], new_col_name] = i
+                    proc_df.loc[proc_df[v] == int(c[0]), new_col_name] = i
                 else:  # for index ranges
                     lower = int(c[0])
                     upper = int(c[1])
