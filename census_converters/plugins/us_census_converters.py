@@ -11,6 +11,15 @@ import requests  # TODO: transition to session to try multiple times bc census A
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
 
+# TODO: implement these variables into input file
+high_res_geo_unit = "tract"  # for now will grab all in state
+low_res_geo_unit = "state"
+state_num = "10"  # could specify multiple states or all with *
+census_year = 2020
+acs_year = 2020  # potentially differs from census_year
+acs_source = "acs5"  # could use acs1 or default to 5
+api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
+
 
 class USCensusGlobalPlugin:
     """
@@ -29,13 +38,6 @@ class USCensusGlobalPlugin:
         Returns:
             the raw data table from the US Census data
         """
-        # TODO: implement these variables into input file
-        high_res_geo_unit = "county"  # for now will grab all in state
-        low_res_geo_unit = "state"
-        state_num = "10"  # could specify multiple states or all with *
-        census_year = 2020
-        api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
-
         # data variables we will be retrieving from api
         api_vars = [
             "P1_001N",  # total population data
@@ -56,6 +58,8 @@ class USCensusGlobalPlugin:
 
         # formulate fips from area codes and set to first column
         raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
+        if high_res_geo_unit == "tract":
+            raw_df["FIPS"] += raw_df["tract"]
         raw_df = raw_df[["FIPS"] + api_vars]
         raw_df = raw_df.set_index("FIPS")
         # NOTE: if using tracts, we will also append tracts on to FIPS code
@@ -108,17 +112,11 @@ class USCensusSummaryPlugin:
         Returns:
             the raw data table from the US Census data
         """
-        # TODO: implement these variables into input file
-        high_res_geo_unit = "county"  # for now will grab all in state
-        low_res_geo_unit = "state"
-        state_num = "10"  # could specify multiple states or all with *
-        acs_year = 2020  # potentially differs from census_year
-        acs_source = "acs5"  # could use acs1 or default to 5
-        api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
-
         # retrieve api vars from metadata_json
         metadata_json = cens_conv_inst.metadata_json
-        api_vars = [metadata_json[v]["profile_vars"] for v in metadata_json]
+        api_vars = [
+            cens_conv_inst.metadata_json[v]["profile_vars"] for v in metadata_json
+        ]
         api_vars = [
             pv for v in api_vars for pv in v
         ]  # flatten nested list of profile_vars
@@ -137,9 +135,10 @@ class USCensusSummaryPlugin:
 
         # formulate fips from area codes and set to first column
         raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
+        if high_res_geo_unit == "tract":
+            raw_df["FIPS"] += raw_df["tract"]
         raw_df = raw_df[["FIPS"] + api_vars]
         raw_df = raw_df.set_index("FIPS")
-        # NOTE: if using tracts, we will also append tracts on to FIPS code
 
         return raw_df
 
@@ -191,13 +190,6 @@ class USCensusPUMSPlugin:
         Returns:
             the raw data table from the US Census data
         """
-        # TODO: implement these variables into input file
-        low_res_geo_unit = "state"
-        state_num = "10"  # could specify multiple states or all with *
-        acs_year = 2020  # potentially differs from census_year
-        acs_source = "acs5"  # could use acs1 or default to 5
-        api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
-
         api_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
 
         url = f"https://api.census.gov/data/{acs_year}/acs/{acs_source}/pums"
