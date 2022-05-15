@@ -1,5 +1,5 @@
 """
-us_census_converter
+us_census_converters
 
 This is the code for the US Census Plugins
 """
@@ -7,135 +7,265 @@ This is the code for the US Census Plugins
 
 import pandas as pd
 import numpy as np
-import requests
+import requests  # TODO: transition to session to try multiple times bc census API sucks
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
 
 
 class USCensusGlobalPlugin:
     """
-    us_census_global_converter
+    USCensusGlobalPlugin
 
-    This is class that houses the implemented hooks for the us census plugins
+    This is class that houses the implemented hooks for the US Census plugin
     for global tables
     """
+
     @hookimpl
-    def read_raw_data_into_pandas(cens_conv_inst):
+    def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
-        _read_raw_data_into_pandas
-        Private member that defines how the raw data is read into pandas
-        data frame for the conversion
+        read_raw_data_into_pandas
+        Retrieves relevant data from the Census API
 
         Returns:
-            returns the raw data table from the us census data
+            the raw data table from the US Census data
         """
-        # TODO: implement input file compatability
+        print("GLOBAL READ")
+        # TODO: implement these variables into input file
+        high_res_geo_unit = "county"  # for now will grab all in state
+        low_res_geo_unit = "state"
+        state_num = "10"  # could specify multiple states or all with *
+        census_year = 2020
+        api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
 
-        url = 'https://api.census.gov/data/2020/dec/pl'
-        params = {'get': 'P1_001N,H1_001N', 'for': 'tract:*', 'in': 'state:10 county:*'} # initial testing data
+        # data variables we will be retrieving from api
+        api_vars = [
+            "P1_001N",  # total population data
+            "H1_001N",  # total housing data
+        ]
+
+        url = f"https://api.census.gov/data/{census_year}/dec/pl"
+        params = {
+            "get": ",".join(api_vars),
+            "for": f"{high_res_geo_unit}:*",
+            "in": f"{low_res_geo_unit}:{state_num}",
+            "key": api_key,
+        }
 
         response = requests.get(url, params)
-        raw_df = pd.read_json(response.url) # TODO: add chunks
+        data = response.json()
+        raw_df = pd.DataFrame(data[1:], columns=data[0])
 
-        raw_df, raw_df.columns = raw_df[1:], raw_df.iloc[0] # adjust first row to header row
+        # formulate fips from area codes and set to first column
+        raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
+        raw_df = raw_df[["FIPS"] + api_vars]
+        raw_df = raw_df.set_index("FIPS")
+        # NOTE: if using tracts, we will also append tracts on to FIPS code
 
         return raw_df
-    
+
     @hookimpl
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
-
-        This function actually transforms the raw data from the US census profile
-        and derives the dataframes for the total population and total number_households
+        Formats the raw data into global tables
 
         Returns:
-            An updated dataframe to be set to processed_data_df
+            an updated dataframe to be set to processed_data_df
         """
+        print("GLOBAL TRANSFORM")
         # total population table
-        pop_df = cens_conv_inst.raw_data_df.copy() \
-            .drop(columns=[column for column in pop_df.columns if column != "P1_001N"]) \
-                .rename(columns={'P1_001N': 'total'})
-                
+        pop_df = (
+            cens_conv_inst.raw_data_df.copy()
+            .drop(columns=["H1_001N"])
+            .rename(columns={"P1_001N": "total"})
+        )
+
         # total number of households table
-        nh_df = cens_conv_inst.raw_data_df.copy() \
-            .drop(columns=[column for column in pop_df.columns if column != "H1_001N"]) \
-                .rename(columns={'H1_001N': 'total'})
-        
+        nh_df = (
+            cens_conv_inst.raw_data_df.copy()
+            .drop(columns=["P1_001N"])
+            .rename(columns={"H1_001N": "total"})
+        )
+
         pop_df.name = "Total Population by High Resolution Geo Unit"
         nh_df.name = "Number of Households by High Resolution Geo Unit"
 
         return {"total_population_by_geo": pop_df, "number_households_by_geo": nh_df}
 
 
+class USCensusSummaryPlugin:
+    """
+    USCensusSummaryPlugin
+
+    This class houses the implemented hooks for the US Census plugins
+    for processed summary count tables
+    """
+
+    @hookimpl
+    def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
+        """
+        _read_raw_data_into_pandas
+        Retrieves relevant data from the Census API
+
+        Returns:
+            the raw data table from the US Census data
+        """
+        print("SUMMARY READ")
+        # TODO: implement these variables into input file
+        high_res_geo_unit = "county"  # for now will grab all in state
+        low_res_geo_unit = "state"
+        state_num = "10"  # could specify multiple states or all with *
+        acs_year = 2020  # potentially differs from census_year
+        acs_source = "acs5"  # could use acs1 or default to 5
+        api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
+
+        # retrieve api vars from metadata_json
+        metadata_json = cens_conv_inst.metadata_json
+        api_vars = [metadata_json[v]["profile_vars"] for v in metadata_json]
+        api_vars = [
+            pv for v in api_vars for pv in v
+        ]  # flatten nested list of profile_vars
+
+        url = f"https://api.census.gov/data/{acs_year}/acs/{acs_source}/profile"
+        params = {
+            "get": ",".join(api_vars),
+            "for": f"{high_res_geo_unit}:*",
+            "in": f"{low_res_geo_unit}:{state_num}",
+            "key": api_key,
+        }
+
+        response = requests.get(url, params)
+        data = response.json()
+        raw_df = pd.DataFrame(data[1:], columns=data[0])
+
+        # formulate fips from area codes and set to first column
+        raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
+        raw_df = raw_df[["FIPS"] + api_vars]
+        raw_df = raw_df.set_index("FIPS")
+        # NOTE: if using tracts, we will also append tracts on to FIPS code
+
+        return raw_df
+
+    @hookimpl
+    def transform(cens_conv_inst: CensusConverter):
+        """
+        transform
+        Formats the raw data into processed summary count tables
+
+        Returns:
+            an updated dataframe to be set to processed_data_df
+        """
+        print("SUMMARY TRANSFORM")
+        metadata_json = cens_conv_inst.metadata_json
+        pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
+        proc_df = cens_conv_inst.raw_data_df
+        sum_tables = {}
+
+        for var in pums_vars:
+            pums_var_ds = metadata_json[var]
+            pums_var_df = proc_df[pums_var_ds["profile_vars"]].astype(int)
+
+            lookup = [
+                (int(i), c["profile_vars"])
+                for i, c in pums_var_ds["common_var_map"].items()
+            ]
+            for i, c in lookup:
+                pums_var_df[i] = pums_var_df[c].sum(axis=1)
+
+            pums_var_df = pums_var_df.drop(columns=pums_var_ds["profile_vars"])
+            pums_var_df.name = f"{var} Summary Table"
+
+            sum_tables[var] = pums_var_df
+
+        return sum_tables
+
+
 class USCensusPUMSPlugin:
     """
     USCensusPUMSPlugin
 
-    This class houses the implemented hooks for the US census plugins
-    for processed PUMS Tables
+    This class houses the implemented hooks for the US Census plugins
+    for processed PUMS tables
     """
+
     @hookimpl
-    def read_raw_data_into_pandas(cens_conv_inst):
+    def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
         _read_raw_data_into_pandas
-        Private member that defines how the raw data is read into pandas
-        data frame for the conversion
+        Retrieves relevant data from the Census API
 
         Returns:
-            returns the raw data table from the us census data
+            the raw data table from the US Census data
         """
-        url = 'https://api.census.gov/data/2020/acs/acs5/pums'
-        pums_vars = ['AGEP', 'SCHL', 'MAR', 'NP', 'HINCP']
-        params = {'get': ','.join(pums_vars), 'for': 'state:10'} # initial testing data
+        print("PUMS READ")
+        # TODO: implement these variables into input file
+        low_res_geo_unit = "state"
+        state_num = "10"  # could specify multiple states or all with *
+        acs_year = 2020  # potentially differs from census_year
+        acs_source = "acs5"  # could use acs1 or default to 5
+        api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
+
+        api_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
+
+        url = f"https://api.census.gov/data/{acs_year}/acs/{acs_source}/pums"
+        params = {
+            "get": ",".join(api_vars),
+            "for": f"{low_res_geo_unit}:{state_num}",
+            "key": api_key,
+        }
 
         response = requests.get(url, params)
-        raw_df = pd.read_json(response.url) # TODO: add chunks
-
-        raw_df, raw_df.columns = raw_df[1:], raw_df.iloc[0] # adjust first row to header row
+        data = response.json()
+        raw_df = pd.DataFrame(data[1:], columns=data[0])
 
         return raw_df
-    
+
     @hookimpl
-    def transform(cens_conv_inst):
+    def transform(cens_conv_inst: CensusConverter):
         """
         transform
-        Data transformations
-        Input: Cleaned and pre-processed pandas df called processed_data_df
-        Output: processed pums_freq_df as pandas df which is now in the correct format as a frequency table
+        Formats the raw data into processed PUMS tables
+
+        Returns:
+            an updated dataframe to be set to processed_data_df
         """
-        pums_vars = cens_conv_inst.input_params.input_params['census_fitting_vars']
-        pums_ds = cens_conv_inst.metadata_json
+        print("PUMS TRANSFORM")
+        pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
         proc_df = cens_conv_inst.raw_data_df.astype(int)
+        metadata_json = cens_conv_inst.metadata_json
 
         for v in pums_vars:
             new_col_name = f"{v}_m"
             proc_df[new_col_name] = [np.NaN for _ in range(proc_df.shape[0])]
-            
-            lookup = [(int(i), c['pums_inds']) for i, c in pums_ds[v]['common_var_map'].items()]
+
+            lookup = [
+                (int(i), c["pums_inds"])
+                for i, c in metadata_json[v]["common_var_map"].items()
+            ]
             for i, c in lookup:
-                # NOTE: this assumes indices will either be a single index or range
-                if len(c) == 1: # for single indices
+                if len(c) == 1:  # for single indices
                     proc_df.loc[proc_df[v] == c[0], new_col_name] = i
-                else: # for index ranges
+                else:  # for index ranges
                     lower = int(c[0])
                     upper = int(c[1])
-                    proc_df.loc[(proc_df[v] >= lower) & (proc_df[v] <= upper), new_col_name] = i
+                    proc_df.loc[
+                        (proc_df[v] >= lower) & (proc_df[v] <= upper), new_col_name
+                    ] = i
 
-        proc_df = proc_df \
-            .rename(columns={x: f"{x}_V" for x in pums_vars}) \
-                .rename(columns={f"{x}_m": x for x in pums_vars})
+        print(proc_df)
 
-        freq_df = proc_df\
-            .groupby(pums_vars) \
-                .size() \
-                    .reset_index() \
-                        .rename(columns={0: 'total'})
+        proc_df = proc_df.rename(columns={x: f"{x}_V" for x in pums_vars}).rename(
+            columns={f"{x}_m": x for x in pums_vars}
+        )
 
-        freq_df['total'] = freq_df['total'].astype(np.float64)
+        freq_df = (
+            proc_df.groupby(pums_vars).size().reset_index().rename(columns={0: "total"})
+        )
+
+        freq_df["total"] = freq_df["total"].astype(np.float64)
         freq_df = freq_df.astype({v: np.int64 for v in pums_vars})
 
         proc_df.name = "PUMS Data Categorical Representation"
         freq_df.name = "PUMS Data Frequency Representation"
-        
+
         return {"categorical_table": proc_df, "frequency_table": freq_df}

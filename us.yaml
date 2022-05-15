@@ -1,3 +1,10 @@
-'census_year': 2020
+'census_year': 2016
 'census_converter': 'us'
+'census_high_res_geo_unit': 2
+'census_low_res_geo_unit': 462
 'census_fitting_vars': ['AGEP', 'SCHL', 'MAR', 'BDSP', 'HINCP']
+'census_input_files':
+  'profile_data_csv': '/home/mojadem/PHDL/SynthEco/data/98-401-X2016043_English_CSV_data.csv'
+  'pums_h_csv':  '/home/mojadem/PHDL/SynthEco/data/pumf-98M0002-E-2016-hierarchical_F1.csv'
+'output_log_file': 'us.out.txt'
+'output_data_log_file': 'us_data_out.txt'
