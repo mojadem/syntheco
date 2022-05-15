@@ -29,7 +29,6 @@ class USCensusGlobalPlugin:
         Returns:
             the raw data table from the US Census data
         """
-        print("GLOBAL READ")
         # TODO: implement these variables into input file
         high_res_geo_unit = "county"  # for now will grab all in state
         low_res_geo_unit = "state"
@@ -72,7 +71,6 @@ class USCensusGlobalPlugin:
         Returns:
             an updated dataframe to be set to processed_data_df
         """
-        print("GLOBAL TRANSFORM")
         # total population table
         pop_df = (
             cens_conv_inst.raw_data_df.copy()
@@ -110,7 +108,6 @@ class USCensusSummaryPlugin:
         Returns:
             the raw data table from the US Census data
         """
-        print("SUMMARY READ")
         # TODO: implement these variables into input file
         high_res_geo_unit = "county"  # for now will grab all in state
         low_res_geo_unit = "state"
@@ -155,27 +152,24 @@ class USCensusSummaryPlugin:
         Returns:
             an updated dataframe to be set to processed_data_df
         """
-        print("SUMMARY TRANSFORM")
-        metadata_json = cens_conv_inst.metadata_json
         pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
-        proc_df = cens_conv_inst.raw_data_df
-        sum_tables = {}
+        proc_df = cens_conv_inst.raw_data_df.copy()
 
+        sum_tables = {}
         for var in pums_vars:
-            pums_var_ds = metadata_json[var]
-            pums_var_df = proc_df[pums_var_ds["profile_vars"]].astype(int)
+            var_ds = cens_conv_inst.metadata_json[var]
+            var_df = proc_df[var_ds["profile_vars"]].astype(int)
 
             lookup = [
-                (int(i), c["profile_vars"])
-                for i, c in pums_var_ds["common_var_map"].items()
+                (int(i), c["profile_vars"]) for i, c in var_ds["common_var_map"].items()
             ]
             for i, c in lookup:
-                pums_var_df[i] = pums_var_df[c].sum(axis=1)
+                var_df[i] = var_df[c].sum(axis=1)
 
-            pums_var_df = pums_var_df.drop(columns=pums_var_ds["profile_vars"])
-            pums_var_df.name = f"{var} Summary Table"
+            var_df = var_df.drop(columns=var_ds["profile_vars"])
+            var_df.name = f"{var} Summary Table"
 
-            sum_tables[var] = pums_var_df
+            sum_tables[var] = var_df
 
         return sum_tables
 
@@ -197,7 +191,6 @@ class USCensusPUMSPlugin:
         Returns:
             the raw data table from the US Census data
         """
-        print("PUMS READ")
         # TODO: implement these variables into input file
         low_res_geo_unit = "state"
         state_num = "10"  # could specify multiple states or all with *
@@ -229,30 +222,26 @@ class USCensusPUMSPlugin:
         Returns:
             an updated dataframe to be set to processed_data_df
         """
-        print("PUMS TRANSFORM")
         pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
         proc_df = cens_conv_inst.raw_data_df.astype(int)
-        metadata_json = cens_conv_inst.metadata_json
 
-        for v in pums_vars:
-            new_col_name = f"{v}_m"
+        for var in pums_vars:
+            new_col_name = f"{var}_m"
             proc_df[new_col_name] = [np.NaN for _ in range(proc_df.shape[0])]
 
             lookup = [
                 (int(i), c["pums_inds"])
-                for i, c in metadata_json[v]["common_var_map"].items()
+                for i, c in cens_conv_inst.metadata_json[var]["common_var_map"].items()
             ]
             for i, c in lookup:
                 if len(c) == 1:  # for single indices
-                    proc_df.loc[proc_df[v] == int(c[0]), new_col_name] = i
+                    proc_df.loc[proc_df[var] == int(c[0]), new_col_name] = i
                 else:  # for index ranges
                     lower = int(c[0])
                     upper = int(c[1])
                     proc_df.loc[
-                        (proc_df[v] >= lower) & (proc_df[v] <= upper), new_col_name
+                        (proc_df[var] >= lower) & (proc_df[var] <= upper), new_col_name
                     ] = i
-
-        print(proc_df)
 
         proc_df = proc_df.rename(columns={x: f"{x}_V" for x in pums_vars}).rename(
             columns={f"{x}_m": x for x in pums_vars}
