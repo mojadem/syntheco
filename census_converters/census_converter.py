@@ -17,6 +17,7 @@ import os
 
 from census_converters.hookspec import hookspec, CensusConverterSpec
 from logger import log, data_log
+from error import SynthEcoError
 
 # Map dictionary used to translate input commands to the modules needed
 # needed to import
@@ -50,15 +51,23 @@ def initialize(census_converter="canada", table_type="global"):
     try:
         plug_manager = pluggy.PluginManager("census_converters")
         plug_manager.add_hookspecs(CensusConverterSpec)
+
+        if census_converter not in plugin_map.keys():
+            raise SynthEcoError("Trying to initialize a census converter "
+                                "that doesn't have a plugin {}".format(census_converter))
         plug_map_entry = plugin_map[census_converter]
-        log("DEBUG", "Plugin Map: {}".frmat(plug_map_entry))
+        if table_type not in plug_map_entry.keys():
+            raise SynthEcoError("Trying to initialize a census converter "
+                                "with a table type that doesn't have a "
+                                "plugin {}.{}".format(census_converter, table_type))
+
+        log("DEBUG", "Plugin Map: {}".format(plug_map_entry))
         mod = importlib.import_module(plug_map_entry['module'])
         plug = getattr(mod, plug_map_entry[table_type])
         plug_manager.register(plug)
         return plug_manager
     except Exception as e:
-        log("ERROR", "{}".format("Census Plugin Failed to Initialize: {}".format(e)))
-        raise e
+        raise SynthEcoError("Census Conveter Plugin Failed to Initialize: {}".format(e))
 
 
 class CensusConverter:

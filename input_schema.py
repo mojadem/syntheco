@@ -18,7 +18,8 @@ _schema = Schema({
                               error="Invald Census Input Files"),
     'census_fitting_vars': And([str]),
     'output_log_file': And(str),
-    'output_data_log_file': And(str)
+    'output_data_log_file': And(str),
+    'census_fitting_procedure': And(str)
     })
 
 """
@@ -30,7 +31,8 @@ if __name__ == "__main__":
                  'census_low_res_geo_unit': 2,
                  'census_high_res_geo_unit': 462,
                  'census_input_files': {'profile_data_csv': 'file.csv',
-                                        'pums_h': 'file.csv'}
+                                        'pums_h': 'file.csv'},
+                 'census_fitting_procedure': 'ipf'
                  }
     try:
         assert _schema.validate(test_dict) == test_dict

@@ -61,9 +61,8 @@ class InputParams:
         pp_print = pprint.PrettyPrinter(indent=4)
         return pp_print.pformat(self.input_params)
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         return self.input_params[key]
-
 
 
 """

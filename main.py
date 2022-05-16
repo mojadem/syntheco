@@ -5,6 +5,7 @@ This is the main control module for syntheco
 """
 import argparse
 from census_converters.census_converter import CensusConverter
+from census_fitting_procedures.census_fitting_procedure import CensusFittingProcedure
 from input import InputParams
 from global_tables import GlobalTables
 from pums_data_tables import PUMSDataTables
@@ -57,7 +58,9 @@ def main():
     log("INFO", "Creating Global Tables")
     global_tables = GlobalTables(geo_unit_=ip['census_high_res_geo_unit'],
                                  converter_=glob_table_conv)
+
     log("INFO", "Global Tables Created")
+    data_log(f"{global_tables}")
 
     log("INFO", "Setting up Census Converters")
     pums_table_conv = CensusConverter(ip, census_conv, "pums")
@@ -73,8 +76,10 @@ def main():
     log("INFO", "Done Setting Up Tables")
 
     data_log(f"{pums_heir_tables}")
-    data_log(f"{global_tables}")
     data_log(f"{summary_tables}")
+
+    fitting_procedure = CensusFittingProcedure(ip, global_tables, pums_heir_tables, summary_tables)
+    results = fitting_procedure.fit_data()
 
 
 if __name__ == "__main__":
