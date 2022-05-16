@@ -56,6 +56,7 @@ def initialize(census_converter="canada", table_type="global"):
             raise SynthEcoError("Trying to initialize a census converter "
                                 "that doesn't have a plugin {}".format(census_converter))
         plug_map_entry = plugin_map[census_converter]
+
         if table_type not in plug_map_entry.keys():
             raise SynthEcoError("Trying to initialize a census converter "
                                 "with a table type that doesn't have a "
