@@ -94,7 +94,7 @@ class CensusFittingProcedure:
 
         Stub function that wraps to the plugin specific implementation
         """
-        return self.hook.perform_fitting(fit_proc_inst=self)
+        return self.hook.perform_fitting(fit_proc_inst=self)[0]
 
     def fit_data(self):
         """

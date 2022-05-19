@@ -47,9 +47,9 @@ class InputParams:
         _yml = None
         try:
             with open(self.input_file, "rb") as yaml_file:
-                _yml = yaml.load(yaml_file, yaml.Loader)
+                _yml = yaml.load(yaml_file, Loader=yaml.Loader)
             try:
-                self.schema.validate(_yml)
+                _yml = self.schema.validate(_yml)
                 return _yml
             except Exception as err:
                 print("error: {}".format(err))

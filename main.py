@@ -10,6 +10,7 @@ from input import InputParams
 from global_tables import GlobalTables
 from pums_data_tables import PUMSDataTables
 from summary_data_tables import SummaryDataTables
+from census_fitting_result import CensusFittingResult
 from logger import setup_logger, log, data_log
 
 
@@ -34,7 +35,7 @@ def main():
     args = parser.parse_args()
 
     ip = InputParams(args.input_file)
-
+    print(ip)
     log_level = "INFO"
     if args.debug:
         log_level = "DEBUG"
@@ -78,8 +79,10 @@ def main():
     data_log(f"{pums_heir_tables}")
     data_log(f"{summary_tables}")
 
-    fitting_procedure = CensusFittingProcedure(ip, global_tables, pums_heir_tables, summary_tables)
-    results = fitting_procedure.fit_data()
+    census_fitting_procedure = CensusFittingProcedure(ip, global_tables, pums_heir_tables, summary_tables)
+    census_fitting_result = CensusFittingResult(converter_=census_fitting_procedure)
+
+    data_log(f"{census_fitting_result}")
 
 
 if __name__ == "__main__":

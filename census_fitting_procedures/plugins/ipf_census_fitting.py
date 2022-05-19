@@ -48,13 +48,22 @@ class IPFCensusHouseholdFittingProcedure:
         """
         log("INFO", "Beginning Iterative Proportional Fitting Procedure")
         try:
+            # IPF Specific input parameters
+            max_iterations = fit_proc_inst.input_params["ipf_max_iterations"]
+            fail_on_nonconvergence = fit_proc_inst.input_params["ipf_fail_on_nonconvergence"]
+            convergence_rate = fit_proc_inst.input_params["ipf_convergence_rate"]
+            rate_tolerance = fit_proc_inst.input_params["ipf_rate_tolerance"]
+
+            #SynthEco Params
             fitting_vars = fit_proc_inst.input_params["census_fitting_vars"]
             geo_codes_of_interest = fit_proc_inst.global_tables.data['geos_of_interest']
             num_houses = fit_proc_inst.global_tables.data['number_households_by_geo']
             summary_tables = fit_proc_inst.summary_tables.data
             pums_freq_org = fit_proc_inst.pums_tables.data['frequency_table']
 
+
             fit_res = {}
+            unconverged_geos = []
             for geo_code in geo_codes_of_interest:
                 log("DEBUG", "Beginning processing for geo_code {}".format(geo_code))
                 n_houses = num_houses.loc[geo_code, 'total']
@@ -73,63 +82,87 @@ class IPFCensusHouseholdFittingProcedure:
                     sum_g_ser = sum_g_ser.astype("float64")
                     sum_g_ser = sum_g_ser.apply(lambda x: 0 if sum_g_total == 0 else round((x/sum_g_total)*n_houses, 0))
                     summary_geo_tables.append(sum_g_ser)
+                
                 log("INFO", "Starting IPF for {}".format(geo_code))
                 IPF = ipfn.ipfn(pums_freq, summary_geo_tables, [[x] for x in fitting_vars],
-                                max_iteration=10000)
+                                max_iteration=max_iterations,
+                                convergence_rate=convergence_rate,
+                                rate_tolerance=rate_tolerance, verbose=2)
                 results = IPF.iteration()
                 log("INFO", "Successfully converged IPF for {}".format(geo_code))
 
-                # Round the floating point answers to integers (will still be floats)
-                results_rounded = results.copy()
-                results_rounded['total'] = results_rounded['total'].apply(lambda x: random_round_to_integer(x))
-
-                # elminate the zero entries as they are not important anymore
-                results_rounded = results_rounded[results_rounded['total'] != 0]
-
-                log("DEBUG", "GEO_CODE: {} SUM: {} NHOUSES: {}".format(geo_code,
-                                                                       results_rounded['total'].sum(),
-                                                                       n_houses))
-                '''
-                This is necessary because if the random rounding eliminates all of the houses in
-                a geographic area, we need to do something different.
-                it means that non of the frequencies are above one, so I will assign 1 to the
-                n_house highest answers rather than round
-                '''
-                previous_sum = -100000.00
-                if results_rounded['total'].sum() == 0:
-                    # If the IPF results in zero (which can happen when there is very
-                    # few houses in the area) set the highest fractional answer to 1.0
-                    results_rounded = results.nlargest(int(n_houses), 'total')
-                    results_rounded['total'] = results_rounded['total'].apply(lambda x: 1.0)
+                # results tuple: 0 results; 1 (0 if failed to converge 1 if success);
+                # 2 is the convergence at each iteration.
+                if results[1] == 0:
+                    log("DEBUG", "-----------------------------------------------------------------")
+                    log("INFO", "IPF Geocode {} NOT CONVERGED".format(geo_code))
+                    log("DEBUG", "IPF Variables: \npums_freq\n{}\nsumary\n{}".format(pums_freq, summary_geo_tables))
+                    log("DEBUG", "Results = {}".format(results))
+                    log("DEBUG", "-----------------------------------------------------------------")
+                    unconverged_geos.append(geo_code)
                 else:
-                    # This part ensures that the number of houses in the fitting is consitent
-                    # basically if the sum of the results is higher or lower than the number
-                    # of households in an area, increment or decrement randomly till we they
-                    # are the same
-                    while results_rounded['total'].sum() < n_houses:
-                        current_sum = results_rounded['total'].sum()
-                        if current_sum == previous_sum:
-                            raise SynthEcoError("There was a problem in IPF rounding procedure for {}".format(geo_code))
-                        random_hh = rn.randint(0, results_rounded.shape[0]-1)
-                        results_rounded.loc[results_rounded.index[random_hh], 'total'] = \
-                            results_rounded.loc[results_rounded.index[random_hh], 'total'] + 1
-                        previous_sum = current_sum
-                    while results_rounded['total'].sum() > n_houses:
-                        current_sum = results_rounded['total'].sum()
-                        if current_sum == previous_sum:
-                            raise SynthEcoError("There was a problem in IPF rounding procedure for {}".format(geo_code))
-                        random_hh = rn.randint(0, results_rounded.shape[0]-1)
-                        results_rounded.loc[results_rounded.index[random_hh], 'total'] = \
-                            results_rounded.loc[results_rounded.index[random_hh], 'total'] - 1
-                        results_rounded = results_rounded[results_rounded['total'] != 0]
-                        previous_sum = current_sum
+                    log("INFO", "IPF Geocode {} converged in {} iterations".format(geo_code, len(results[2])))
 
-                # We don't need no stinking zeros
-                results_rounded = results_rounded[results_rounded['total'] != 0]
-                log("DEBUG", "FINAL RESULTS: GEO_CODE: {} SUM: {} NHOUSES: {}".format(geo_code,
-                                                                                      results_rounded['total'].sum(),
-                                                                                      n_houses))
-                fit_res[geo_code] = results_rounded
+                    # Round the floating point answers to integers (will still be floats)
+                    results_rounded = results[0].copy()
+                    results_rounded['total'] = results_rounded['total'].apply(lambda x: random_round_to_integer(x))
+
+                    # elminate the zero entries as they are not important anymore
+                    results_rounded = results_rounded[results_rounded['total'] != 0]
+
+                    log("DEBUG", "GEO_CODE: {} SUM: {} NHOUSES: {}".format(geo_code,
+                                                                           results_rounded['total'].sum(),
+                                                                           n_houses))
+                    '''
+                    This is necessary because if the random rounding eliminates all of the houses in
+                    a geographic area, we need to do something different.
+                    it means that non of the frequencies are above one, so I will assign 1 to the
+                    n_house highest answers rather than round
+                    '''
+                    previous_sum = -100000.00
+                    if results_rounded['total'].sum() == 0:
+                        # If the IPF results in zero (which can happen when there is very
+                        # few houses in the area) set the highest fractional answer to 1.0
+                        results_rounded = results[0].nlargest(int(n_houses), 'total')
+                        results_rounded['total'] = results_rounded['total'].apply(lambda x: 1.0)
+                    else:
+                        # This part ensures that the number of houses in the fitting is consitent
+                        # basically if the sum of the results is higher or lower than the number
+                        # of households in an area, increment or decrement randomly till we they
+                        # are the same
+                        while results_rounded['total'].sum() < n_houses:
+                            current_sum = results_rounded['total'].sum()
+                            if current_sum == previous_sum:
+                                raise SynthEcoError("There was a problem in IPF rounding procedure for {}".format(geo_code))
+                            random_hh = rn.randint(0, results_rounded.shape[0]-1)
+                            results_rounded.loc[results_rounded.index[random_hh], 'total'] = \
+                                results_rounded.loc[results_rounded.index[random_hh], 'total'] + 1
+                            previous_sum = current_sum
+                        while results_rounded['total'].sum() > n_houses:
+                            current_sum = results_rounded['total'].sum()
+                            if current_sum == previous_sum:
+                                raise SynthEcoError("There was a problem in IPF rounding procedure for {}".format(geo_code))
+                            random_hh = rn.randint(0, results_rounded.shape[0]-1)
+                            results_rounded.loc[results_rounded.index[random_hh], 'total'] = \
+                                results_rounded.loc[results_rounded.index[random_hh], 'total'] - 1
+                            results_rounded = results_rounded[results_rounded['total'] != 0]
+                            previous_sum = current_sum
+
+                    # We don't need no stinking zeros
+                    results_rounded = results_rounded[results_rounded['total'] != 0]
+                    log("DEBUG", "FINAL RESULTS: GEO_CODE: {} SUM: {} NHOUSES: {}".format(geo_code,
+                                                                                          results_rounded['total'].sum(),
+                                                                                          n_houses))
+                    fit_res[geo_code] = results_rounded
+
+            if len(unconverged_geos) > 0:
+                if fail_on_nonconvergence:
+                    raise SynthEcoError("There were {} unconverged geo_codes:\n{}".format(len(unconverged_geos),
+                                                                                          unconverged_geos))
+                else:
+                    log("INFO","There were {} unconverged geo_codes, ".format(len(unconverged_geos)) +
+                               "removing them from consideration:\n{}".format(unconverged_geos))
+
             return fit_res
 
         except Exception as e:
