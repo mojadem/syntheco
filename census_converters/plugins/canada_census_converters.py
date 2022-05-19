@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 import json
 from census_converters import hookimpl
+from logger import log, data_log
+from error import SynthEcoError
 
 
 class CanadaCensusGlobalPlugin:
@@ -88,8 +90,19 @@ class CanadaCensusGlobalPlugin:
         nh_df = nh_df.set_index('GEO_CODE')
         nh_df.name = "Number of Households by High Resolution Geo Unit"
 
+        # Finally, the geographic units of interest come from the overlap between pop and hh
+        geos_hh_interest = list(nh_df[(nh_df['total'] != 0)].index)
+        geos_pop_interest = list(pop_df[pop_df['total'] != 0].index)
+
+        geos_of_interest = [x for x in geos_hh_interest if x in geos_pop_interest]
+
+        if (cens_conv_inst.input_params['debug_limit_geo_codes'] and
+           cens_conv_inst.input_params['debug_limit_geo_codes'] < len(geos_of_interest)):
+           geos_of_interest = geos_of_interest[0:cens_conv_inst.input_params['debug_limit_geo_codes']]
+
         return {"total_population_by_geo": pop_df,
-                "number_households_by_geo": nh_df}
+                "number_households_by_geo": nh_df,
+                "geos_of_interest": geos_of_interest}
 
 
 class CanadaCensusSummaryPlugin:
@@ -135,76 +148,115 @@ class CanadaCensusSummaryPlugin:
 
     @hookimpl
     def transform(cens_conv_inst):
-        fitting_vars = cens_conv_inst.input_params.input_params['census_fitting_vars']
-        sum_tables = {}
-        profile_df = cens_conv_inst.raw_data_df
-        for var in fitting_vars:
-            pums_ds = cens_conv_inst.metadata_json[var]
+        try:
+            fitting_vars = cens_conv_inst.input_params.input_params['census_fitting_vars']
+            sum_tables = {}
+            profile_df = cens_conv_inst.raw_data_df
+            for var in fitting_vars:
+                pums_ds = cens_conv_inst.metadata_json[var]
 
-            # extract variables from profiles
-            prof_var_df = profile_df[profile_df['Member ID: Profile of Census Tracts (2247)'].
-                                     isin([int(x) for x in pums_ds['profile_hh_inds']])]
-            prof_var_df = prof_var_df.reset_index()
+                # extract variables from profiles
+                prof_var_df = profile_df[profile_df['Member ID: Profile of Census Tracts (2247)'].
+                                         isin([int(x) for x in pums_ds['profile_hh_inds']])]
+                prof_var_df = prof_var_df.reset_index()
+                log("DEBUG", "prof_var_df {}|{}:".format(var, prof_var_df))
 
-            # Create the table that aligns with the pums
-            sum_df = prof_var_df[['GEO_CODE (POR)',
-                                  'Member ID: Profile of Census Tracts (2247)',
-                                  "DATA_QUALITY_FLAG",
-                                  'Dim: Sex (3): Member ID: [1]: Total - Sex']].copy()
+                # Create the table that aligns with the pums
+                sum_df = prof_var_df[['GEO_CODE (POR)',
+                                      'Member ID: Profile of Census Tracts (2247)',
+                                      "DATA_QUALITY_FLAG",
+                                      'Dim: Sex (3): Member ID: [1]: Total - Sex']].copy()
 
-            sum_df = sum_df.rename(columns={'GEO_CODE (POR)': 'GEO_CODE',
-                                            'Member ID: Profile of Census Tracts (2247)': "{}_ind".format(var),
-                                            'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total'})
+                sum_df = sum_df.rename(columns={'GEO_CODE (POR)': 'GEO_CODE',
+                                                'Member ID: Profile of Census Tracts (2247)': "{}_ind".format(var),
+                                                'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total'})
 
-            sum_df['total'] = pd.to_numeric(sum_df['total'],
-                                            downcast='float',
-                                            errors='coerce')
+                sum_df['total'] = pd.to_numeric(sum_df['total'],
+                                                downcast='float',
+                                                errors='coerce')
+                log("DEBUG", "sum_df {}:\n{}".format(var, sum_df))
+                # Replace categories of text with the index number from pums_data_structures
+                profile_cats = pums_ds['profile_hh_cats']
+                profile_inds = [int(x) for x in pums_ds['profile_hh_inds']]
+                sum_df[var] = sum_df.apply(lambda row:
+                                           profile_cats[profile_inds.index(row['{}_ind'.format(var)])][0],
+                                           axis=1)
 
-            # Replace categories of text with the index number from pums_data_structures
-            profile_cats = pums_ds['profile_hh_cats']
-            profile_inds = [int(x) for x in pums_ds['profile_hh_inds']]
-            sum_df[var] = sum_df.apply(lambda row:
-                                       profile_cats[profile_inds.index(row['{}_ind'.format(var)])][0],
-                                       axis=1)
+                sum_df = sum_df.drop(columns={'{}_ind'.format(var)})
+                # scale the NaNs in left by the average value of the CMA and scaled down to the population in that area
+                averages = sum_df.groupby(var).mean()
 
-            sum_df = sum_df.drop(columns={'{}_ind'.format(var)})
-            # scale the NaNs in left by the average value of the CMA and scaled down to the population in that area
-            averages = sum_df.groupby(var).mean()
+                # Capture case where all variables are 0, right now make them all even cause
+                # I don't know what else to do with them
+                sum_by_geo = sum_df.groupby('GEO_CODE').sum()
+                sum_df['total'] = sum_df.apply(lambda x: 1.0 if sum_by_geo.loc[x['GEO_CODE']]['total'] == 0
+                                               else x['total'], axis=1)
+                log("DEBUG", "sum_df_2 {}:\n{}".format(var, sum_df))
 
-            # Capture case where all variables are 0, right now make them all even cause
-            # I don't know what else to do with them
-            sum_by_geo = sum_df.groupby('GEO_CODE').sum()
-            sum_df['total'] = sum_df.apply(lambda x: 1.0 if sum_by_geo.loc[x['GEO_CODE']]['total'] == 0
-                                           else x['total'], axis=1)
+                # Handle bad or obfuscated data values
+                population_df = cens_conv_inst.global_tables.data['total_population_by_geo']
+                for index, row in sum_df.iterrows():
+                    pop = population_df.loc[row['GEO_CODE']]['total']
+                    if pd.isnull(row['total']) or (row['total'] == 0.0
+                                                   and str(row['DATA_QUALITY_FLAG']).find("9") == 0):
+                        ave = averages.loc[row[var]]['total']
+                        sum_df.loc[index, 'total'] = 0 if pop == 0 else ave/pop
 
-            # Handle bad or obfuscated data values
-            population_df = cens_conv_inst.global_tables.data['total_population_by_geo']
-            for index, row in sum_df.iterrows():
-                pop = population_df.loc[row['GEO_CODE']]['total']
-                if pd.isnull(row['total']) or (row['total'] == 0.0 and str(row['DATA_QUALITY_FLAG']).find("9") == 0):
-                    ave = averages.loc[row[var]]['total']
-                    sum_df.loc[index, 'total'] = 0 if pop == 0 else ave/pop
+                log("DEBUG", "sum_df_3 {}:\n{}".format(var, sum_df))
+                log("DEBUG", "pums_ds {}:\n{} ".format(var, pums_ds))
 
-            # Finally, we need align the summary table into the common categorical variables if needed
-            if pums_ds['profile_type'] == "categorical" and "common_var_map" in pums_ds:
-                common_var_map = pums_ds['common_var_map']
-                com_keys = common_var_map.keys()
-                sum_df = sum_df.reset_index()
-                sum_df = sum_df.rename(columns={'total': 'total_org'})
-                sum_df['total'] = [np.NaN for x in range(0, sum_df.shape[0])]
-                sum_df['total'] = sum_df.apply(lambda x:
-                                               sum_df[(sum_df['GEO_CODE'] == x['GEO_CODE']) &
-                                                      (sum_df[var].
-                                                       isin(common_var_map[str(x[var])]['profile_inds']))]['total_org'].
-                                               sum()
-                                               if str(x[var]) in com_keys else np.NaN, axis=1)
-                sum_df = sum_df.dropna(axis=0) \
-                               .drop(columns=['total_org'])
+                # Finally, we need align the summary table into the common categorical variables if needed
+                if pums_ds['profile_type'] == "categorical" \
+                    and "common_var_map" in pums_ds \
+                        and pums_ds['common_var_map'] != {}:
+                    log("DEBUG", "Aligning {} categories with PUMS".format(var))
+                    common_var_map = pums_ds['common_var_map']
+                    com_keys = common_var_map.keys()
+                    sum_df = sum_df.reset_index()
+                    sum_df = sum_df.rename(columns={'total': 'total_org'})
+                    sum_df['total'] = [np.NaN for x in range(0, sum_df.shape[0])]
+                    sum_df['total'] = sum_df.apply(lambda x:
+                                                   sum_df[(sum_df['GEO_CODE'] == x['GEO_CODE']) &
+                                                          (sum_df[var].
+                                                           isin(common_var_map[str(x[var])]['profile_inds']))]
+                                                         ['total_org'].sum()
+                                                   if str(x[var]) in com_keys else np.NaN, axis=1)
+                    sum_df = sum_df.dropna(axis=0) \
+                                   .drop(columns=['total_org'])
                 sum_df.name = "{} Summary Table".format(var)
+                log("DEBUG", "sum_df_4 {}:\n{}".format(var, sum_df))
+                sum_tables[var] = sum_df
 
-            sum_tables[var] = sum_df
+            '''
+            summary_geo_tables = {}
+            nhouses_by_geo_df = cens_conv_inst.global_tables.data['number_households_by_geo']
+            geos_of_interest = cens_conv_inst.global_tables.data['geos_of_interest']
+            # Now we need to reorient the summary tables by geocode so that it prepared for fitting
+            for geo_code in geos_of_interest:
+                ### Extract area of interest from summary_tables
+                summary_geo_tables[geo_code] = []
+                ### Scale by the numer of households in this area
+                n_houses = nhouses_by_geo_df.loc[geo_code,'total']
 
-        return sum_tables
+                for var in fitting_vars:
+                    sum_t_df = sum_tables[var]
+                    sum_t_df = sum_t_df.set_index('GEO_CODE')
+
+                    sum_g_df = sum_t_df.loc[geo_code,].reset_index()\
+                                                      .set_index([var])
+
+                    sum_g_ser = sum_g_df['total']
+                    sum_g_total = sum_g_ser.sum()
+                    sum_g_ser = sum_g_ser.astype("float64")
+                    sum_g_ser = sum_g_ser.apply(lambda x: 0 if sum_g_total == 0 else (x/sum_g_total)*n_houses)
+                    sum_g_ser.name = "Summary Table for geo: {}".format(geo_code)
+                    summary_geo_tables[geo_code].append(sum_g_ser)
+
+            return summary_geo_tables
+            '''
+            return sum_tables
+        except Exception as e:
+            raise SynthEcoError(e)
 
 
 class CanadaCensusPUMSPlugin:
@@ -242,7 +294,7 @@ class CanadaCensusPUMSPlugin:
         Output: processed pums_freq_df as pandas df which is now in the correct format as a frequency table
         """
         try:
-            fitting_variables = cens_conv_inst.input_params.input_params['census_fitting_vars']
+            fitting_variables = cens_conv_inst.input_params['census_fitting_vars']
 
             # draws from pums structure file for chosen variables and excludes pums type 'special'
             # (will be handled separately)
@@ -295,6 +347,7 @@ class CanadaCensusPUMSPlugin:
             pums_freq_df['total'] = pums_freq_df['total'].astype(np.float64)
 
             pums_freq_df = pums_freq_df.astype({x: "int64" for x in fitting_variables})
+            pums_freq_df = pums_freq_df.astype({x: "str" for x in fitting_variables})
 
             processed_data_df.name = "PUMS Data Categorical Representation"
             pums_freq_df.name = "PUMS Data Frequency Representation"
