@@ -57,13 +57,15 @@ class InputParams:
         except Exception as err:
             print("InputParams Error, Unable to read input file {}\n{}".format(self.input_file, err))
 
+    def has_keyword(self, kw):
+        return kw in self.input_params
+
     def __str__(self):
         pp_print = pprint.PrettyPrinter(indent=4)
         return pp_print.pformat(self.input_params)
 
     def __getitem__(self, key):
         return self.input_params[key]
-
 
 """
 For Testing

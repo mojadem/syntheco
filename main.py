@@ -35,7 +35,7 @@ def main():
     args = parser.parse_args()
 
     ip = InputParams(args.input_file)
-    print(ip)
+    
     log_level = "INFO"
     if args.debug:
         log_level = "DEBUG"

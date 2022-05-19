@@ -96,7 +96,7 @@ class CanadaCensusGlobalPlugin:
 
         geos_of_interest = [x for x in geos_hh_interest if x in geos_pop_interest]
 
-        if (cens_conv_inst.input_params['debug_limit_geo_codes'] and
+        if (cens_conv_inst.input_params.has_keyword('debug_limit_geo_codes') and
            cens_conv_inst.input_params['debug_limit_geo_codes'] < len(geos_of_interest)):
            geos_of_interest = geos_of_interest[0:cens_conv_inst.input_params['debug_limit_geo_codes']]
 
