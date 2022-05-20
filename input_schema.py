@@ -24,7 +24,8 @@ _schema = Schema({
     Optional('ipf_fail_on_nonconvergence', default=False): bool,
     Optional('ipf_convergence_rate', default=1.0e-5): float,
     Optional('ipf_rate_tolerance', default=1.0e-8): float,
-    Optional('debug_limit_geo_codes'): int
+    Optional('debug_limit_geo_codes'): int,
+    Optional('parallel_num_cores',default=1): int
     })
 
 """
