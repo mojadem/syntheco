@@ -32,7 +32,7 @@ def api_call(*args, **kwargs):
         print(e)
         response = api_call(*args, **kwargs)
     else:
-        print("success")
+        print(f"success: {response.url}")
     finally:
         return response
 
