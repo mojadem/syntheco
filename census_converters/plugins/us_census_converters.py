@@ -52,7 +52,7 @@ class USCensusGlobalPlugin:
             "key": api_key,
         }
 
-        response = requests.get(url, params)
+        response = requests.get(url, params, timeout=1)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
@@ -129,7 +129,7 @@ class USCensusSummaryPlugin:
             "key": api_key,
         }
 
-        response = requests.get(url, params)
+        response = requests.get(url, params, timeout=1)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
@@ -199,7 +199,7 @@ class USCensusPUMSPlugin:
             "key": api_key,
         }
 
-        response = requests.get(url, params)
+        response = requests.get(url, params, timeout=1)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
