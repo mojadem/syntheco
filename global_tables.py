@@ -5,6 +5,7 @@ This class that holds the standard tables that are needed across
 the synthetic ecosystem generation process.
 
 """
+import pandas as pd
 
 
 class GlobalTables:
@@ -26,6 +27,14 @@ class GlobalTables:
         """
         This method returns a nice print out of the GlobalTables
         """
-        return '\n'.join(["Global Tables",
-                          "------------------------------------------------------"] +
-                         [f"{x.name}\n{x}" for x in self.data.values()])
+        return_str = "\n".join(["Global Tables",
+                                "------------------------------------------------------"])
+        for x in self.data.values():
+            if isinstance(x, pd.DataFrame):
+                return_str += f"{x.name}\n{x}\n"
+            else:
+                return_str += f"{x[1:10]}\n"
+        return return_str
+
+    def __getitem__(self, item):
+        return self.data[item]
