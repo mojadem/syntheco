@@ -7,7 +7,11 @@ This is the code for the US Census Plugins
 
 import pandas as pd
 import numpy as np
-import requests  # TODO: transition to session to try multiple times bc census API sucks
+
+import requests
+from requests.exceptions import Timeout
+from requests.exceptions import ConnectionError
+
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
 
@@ -19,6 +23,18 @@ census_year = 2020
 acs_year = 2020  # potentially differs from census_year
 acs_source = "acs5"  # could use acs1 or default to 5
 api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
+
+
+def api_call(*args, **kwargs):
+    try:
+        response = requests.get(*args, **kwargs)
+    except (Timeout, ConnectionError) as e:
+        print(e)
+        response = api_call(*args, **kwargs)
+    else:
+        print("success")
+    finally:
+        return response
 
 
 class USCensusGlobalPlugin:
@@ -52,7 +68,7 @@ class USCensusGlobalPlugin:
             "key": api_key,
         }
 
-        response = requests.get(url, params, timeout=1)
+        response = api_call(url, params, timeout=1)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
@@ -121,6 +137,8 @@ class USCensusSummaryPlugin:
             pv for v in api_vars for pv in v
         ]  # flatten nested list of profile_vars
 
+        assert len(api_vars) <= 50  # TODO: split this case into multiple api calls
+
         url = f"https://api.census.gov/data/{acs_year}/acs/{acs_source}/profile"
         params = {
             "get": ",".join(api_vars),
@@ -129,7 +147,7 @@ class USCensusSummaryPlugin:
             "key": api_key,
         }
 
-        response = requests.get(url, params, timeout=1)
+        response = api_call(url, params, timeout=1)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
@@ -199,7 +217,7 @@ class USCensusPUMSPlugin:
             "key": api_key,
         }
 
-        response = requests.get(url, params, timeout=1)
+        response = api_call(url, params, timeout=1)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
