@@ -16,7 +16,7 @@ from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
 
 # TODO: implement these variables into input file
-high_res_geo_unit = "tract"  # for now will grab all in state
+high_res_geo_unit = "county"  # for now will grab all in state
 low_res_geo_unit = "state"
 state_num = "10"  # could specify multiple states or all with *
 census_year = 2020
