@@ -108,7 +108,22 @@ class USCensusGlobalPlugin:
         pop_df.name = "Total Population by High Resolution Geo Unit"
         nh_df.name = "Number of Households by High Resolution Geo Unit"
 
-        return {"total_population_by_geo": pop_df, "number_households_by_geo": nh_df}
+        geos_hh_interest = list(nh_df[(nh_df["total"] != 0)].index)
+        geos_pop_interest = list(pop_df[pop_df["total"] != 0].index)
+
+        geos_of_interest = [x for x in geos_hh_interest if x in geos_pop_interest]
+
+        if cens_conv_inst.input_params.has_keyword("debug_limit_geo_codes"):
+            debug_limit = cens_conv_inst.input_params["debug_limit_geo_codes"]
+
+            if debug_limit < len(geos_of_interest):
+                geos_of_interest = geos_of_interest[:debug_limit]
+
+        return {
+            "total_population_by_geo": pop_df,
+            "number_households_by_geo": nh_df,
+            "geos_of_interest": geos_of_interest,
+        }
 
 
 class USCensusSummaryPlugin:
