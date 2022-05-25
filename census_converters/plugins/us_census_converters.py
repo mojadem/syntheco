@@ -99,11 +99,19 @@ class USCensusGlobalPlugin:
             .rename(columns={"P1_001N": "total"})
         )
 
+        pop_df["total"] = pd.to_numeric(
+            pop_df["total"], downcast="float", errors="coerce"
+        )
+
         # total number of households table
         nh_df = (
             cens_conv_inst.raw_data_df.copy()
             .drop(columns=["P1_001N"])
             .rename(columns={"H1_001N": "total"})
+        )
+
+        nh_df["total"] = pd.to_numeric(
+            nh_df["total"], downcast="float", errors="coerce"
         )
 
         pop_df.name = "Total Population by High Resolution Geo Unit"
@@ -200,6 +208,14 @@ class USCensusSummaryPlugin:
                 var_df[i] = var_df[c].sum(axis=1)
 
             var_df = var_df.drop(columns=var_ds["profile_vars"])
+            var_df = var_df.stack().reset_index()
+            var_df.columns = ["FIPS", var, "total"]
+            var_df = var_df.set_index("FIPS")
+
+            var_df["total"] = pd.to_numeric(
+                var_df["total"], downcast="float", errors="coerce"
+            )
+
             var_df.name = f"{var} Summary Table"
 
             sum_tables[var] = var_df

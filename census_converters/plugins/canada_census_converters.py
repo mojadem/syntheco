@@ -223,6 +223,7 @@ class CanadaCensusSummaryPlugin:
                                                    if str(x[var]) in com_keys else np.NaN, axis=1)
                     sum_df = sum_df.dropna(axis=0) \
                                    .drop(columns=['total_org'])
+                sum_df = sum_df.set_index('GEO_CODE')
                 sum_df.name = "{} Summary Table".format(var)
                 log("DEBUG", "sum_df_4 {}:\n{}".format(var, sum_df))
                 sum_tables[var] = sum_df
