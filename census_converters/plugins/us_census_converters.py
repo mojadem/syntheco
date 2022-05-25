@@ -17,7 +17,7 @@ from census_converters.census_converter import CensusConverter
 from logger import log
 
 # TODO: implement these variables into input file
-high_res_geo_unit = "county"  # for now will grab all in state
+high_res_geo_unit = "tract"  # for now will grab all in state
 low_res_geo_unit = "state"
 state_num = "10"  # could specify multiple states or all with *
 census_year = 2020
@@ -77,9 +77,9 @@ class USCensusGlobalPlugin:
         raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
         if high_res_geo_unit == "tract":
             raw_df["FIPS"] += raw_df["tract"]
+
         raw_df = raw_df[["FIPS"] + api_vars]
         raw_df = raw_df.set_index("FIPS")
-        # NOTE: if using tracts, we will also append tracts on to FIPS code
 
         return raw_df
 
@@ -99,9 +99,7 @@ class USCensusGlobalPlugin:
             .rename(columns={"P1_001N": "total"})
         )
 
-        pop_df["total"] = pd.to_numeric(
-            pop_df["total"], downcast="float", errors="coerce"
-        )
+        pop_df["total"] = pop_df["total"].astype(np.float64)
 
         # total number of households table
         nh_df = (
@@ -110,9 +108,7 @@ class USCensusGlobalPlugin:
             .rename(columns={"H1_001N": "total"})
         )
 
-        nh_df["total"] = pd.to_numeric(
-            nh_df["total"], downcast="float", errors="coerce"
-        )
+        nh_df["total"] = nh_df["total"].astype(np.float64)
 
         pop_df.name = "Total Population by High Resolution Geo Unit"
         nh_df.name = "Number of Households by High Resolution Geo Unit"
@@ -154,9 +150,7 @@ class USCensusSummaryPlugin:
         """
         # retrieve api vars from metadata_json
         metadata_json = cens_conv_inst.metadata_json
-        api_vars = [
-            cens_conv_inst.metadata_json[v]["profile_vars"] for v in metadata_json
-        ]
+        api_vars = [metadata_json[v]["profile_vars"] for v in metadata_json]
         api_vars = [
             pv for v in api_vars for pv in v
         ]  # flatten nested list of profile_vars
@@ -179,6 +173,7 @@ class USCensusSummaryPlugin:
         raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
         if high_res_geo_unit == "tract":
             raw_df["FIPS"] += raw_df["tract"]
+
         raw_df = raw_df[["FIPS"] + api_vars]
         raw_df = raw_df.set_index("FIPS")
 
@@ -199,22 +194,20 @@ class USCensusSummaryPlugin:
         sum_tables = {}
         for var in pums_vars:
             var_ds = cens_conv_inst.metadata_json[var]
-            var_df = proc_df[var_ds["profile_vars"]].astype(int)
+            var_df = proc_df[var_ds["profile_vars"]].astype(np.int64)
 
+            # sum profile vars for each index i in common_var_map to get summary totals
             lookup = [
                 (int(i), c["profile_vars"]) for i, c in var_ds["common_var_map"].items()
             ]
-            for i, c in lookup:
-                var_df[i] = var_df[c].sum(axis=1)
+            for i, prof_vars in lookup:
+                var_df[i] = var_df[prof_vars].sum(axis=1)
 
-            var_df = var_df.drop(columns=var_ds["profile_vars"])
-            var_df = var_df.stack().reset_index()
+            var_df = var_df.drop(columns=var_ds["profile_vars"]).stack().reset_index()
             var_df.columns = ["FIPS", var, "total"]
             var_df = var_df.set_index("FIPS")
 
-            var_df["total"] = pd.to_numeric(
-                var_df["total"], downcast="float", errors="coerce"
-            )
+            var_df["total"] = var_df["total"].astype(np.float64)
 
             var_df.name = f"{var} Summary Table"
 
@@ -265,7 +258,7 @@ class USCensusPUMSPlugin:
             an updated dataframe to be set to processed_data_df
         """
         pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
-        proc_df = cens_conv_inst.raw_data_df.astype(int)
+        proc_df = cens_conv_inst.raw_data_df.astype(np.int64)
 
         for var in pums_vars:
             new_col_name = f"{var}_m"
