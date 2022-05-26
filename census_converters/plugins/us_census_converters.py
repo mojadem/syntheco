@@ -205,6 +205,16 @@ class USCensusSummaryPlugin:
 
             var_df = var_df.drop(columns=var_ds["profile_vars"]).stack().reset_index()
             var_df.columns = ["FIPS", var, "total"]
+
+            # handle cases where total is 0 for all indeces in common_var_map
+            sum_by_geo = var_df.groupby("FIPS").sum()
+            var_df["total"] = var_df.apply(
+                lambda x: 1.0  # right now just converts them to 1.0
+                if sum_by_geo.loc[x["FIPS"]]["total"] == 0
+                else x["total"],
+                axis=1,
+            )
+
             var_df = var_df.set_index("FIPS")
 
             var_df["total"] = var_df["total"].astype(np.float64)
@@ -268,12 +278,12 @@ class USCensusPUMSPlugin:
                 (int(i), c["pums_inds"])
                 for i, c in cens_conv_inst.metadata_json[var]["common_var_map"].items()
             ]
-            for i, c in lookup:
-                if len(c) == 1:  # for single indices
-                    proc_df.loc[proc_df[var] == int(c[0]), new_col_name] = i
-                else:  # for index ranges
-                    lower = int(c[0])
-                    upper = int(c[1])
+            for i, constraints in lookup:
+                if len(constraints) == 1:  # for single index constraints
+                    proc_df.loc[proc_df[var] == int(constraints[0]), new_col_name] = i
+                elif len(constraints) == 2:  # for index range constraints
+                    lower = int(constraints[0])
+                    upper = int(constraints[1])
                     proc_df.loc[
                         (proc_df[var] >= lower) & (proc_df[var] <= upper), new_col_name
                     ] = i
