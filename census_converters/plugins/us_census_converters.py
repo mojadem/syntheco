@@ -17,13 +17,7 @@ from census_converters.census_converter import CensusConverter
 from logger import log
 
 # TODO: implement these variables into input file
-high_res_geo_unit = "tract"  # for now will grab all in state
-low_res_geo_unit = "state"
-state_num = "10"  # could specify multiple states or all with *
-census_year = 2020
-acs_year = 2020  # potentially differs from census_year
-acs_source = "acs5"  # could use acs1 or default to 5
-api_key = "e3061d8962ee2b9822717e18093c29337bca18df"
+state_num = "10"
 
 
 def api_call(*args, **kwargs):
@@ -61,12 +55,18 @@ class USCensusGlobalPlugin:
             "H1_001N",  # total housing data
         ]
 
-        url = f"https://api.census.gov/data/{census_year}/dec/pl"
+        url = "https://api.census.gov/data/{}/dec/pl".format(
+            cens_conv_inst.input_params["census_year"]
+        )
         params = {
             "get": ",".join(api_vars),
-            "for": f"{high_res_geo_unit}:*",
-            "in": f"{low_res_geo_unit}:{state_num}",
-            "key": api_key,
+            "for": "{}:*".format(
+                cens_conv_inst.input_params["census_high_res_geo_unit"]
+            ),
+            "in": "{}:{}".format(
+                cens_conv_inst.input_params["census_low_res_geo_unit"], state_num
+            ),
+            "key": cens_conv_inst.input_params["api_key"],
         }
 
         response = api_call(url, params, timeout=1)
@@ -75,7 +75,7 @@ class USCensusGlobalPlugin:
 
         # formulate fips from area codes and set to first column
         raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
-        if high_res_geo_unit == "tract":
+        if cens_conv_inst.input_params["census_high_res_geo_unit"] == "tract":
             raw_df["FIPS"] += raw_df["tract"]
 
         raw_df = raw_df[["FIPS"] + api_vars]
@@ -157,12 +157,18 @@ class USCensusSummaryPlugin:
 
         assert len(api_vars) <= 50  # TODO: split this case into multiple api calls
 
-        url = f"https://api.census.gov/data/{acs_year}/acs/{acs_source}/profile"
+        url = "https://api.census.gov/data/{}/acs/acs5/profile".format(
+            cens_conv_inst.input_params["census_year"]
+        )
         params = {
             "get": ",".join(api_vars),
-            "for": f"{high_res_geo_unit}:*",
-            "in": f"{low_res_geo_unit}:{state_num}",
-            "key": api_key,
+            "for": "{}:*".format(
+                cens_conv_inst.input_params["census_high_res_geo_unit"]
+            ),
+            "in": "{}:{}".format(
+                cens_conv_inst.input_params["census_low_res_geo_unit"], state_num
+            ),
+            "key": cens_conv_inst.input_params["api_key"],
         }
 
         response = api_call(url, params, timeout=1)
@@ -171,7 +177,7 @@ class USCensusSummaryPlugin:
 
         # formulate fips from area codes and set to first column
         raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
-        if high_res_geo_unit == "tract":
+        if cens_conv_inst.input_params["census_high_res_geo_unit"] == "tract":
             raw_df["FIPS"] += raw_df["tract"]
 
         raw_df = raw_df[["FIPS"] + api_vars]
@@ -245,11 +251,15 @@ class USCensusPUMSPlugin:
         """
         api_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
 
-        url = f"https://api.census.gov/data/{acs_year}/acs/{acs_source}/pums"
+        url = "https://api.census.gov/data/{}/acs/acs5/pums".format(
+            cens_conv_inst.input_params["census_year"]
+        )
         params = {
             "get": ",".join(api_vars),
-            "for": f"{low_res_geo_unit}:{state_num}",
-            "key": api_key,
+            "for": "{}:{}".format(
+                cens_conv_inst.input_params["census_low_res_geo_unit"], state_num
+            ),
+            "key": cens_conv_inst.input_params["api_key"],
         }
 
         response = api_call(url, params, timeout=1)
