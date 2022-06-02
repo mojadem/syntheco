@@ -55,18 +55,14 @@ class USCensusGlobalPlugin:
             "H1_001N",  # total housing data
         ]
 
-        url = "https://api.census.gov/data/{}/dec/pl".format(
-            cens_conv_inst.input_params["census_year"]
-        )
+        ip = cens_conv_inst.input_params
+
+        url = "https://api.census.gov/data/{}/dec/pl".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
-            "for": "{}:*".format(
-                cens_conv_inst.input_params["census_high_res_geo_unit"]
-            ),
-            "in": "{}:{}".format(
-                cens_conv_inst.input_params["census_low_res_geo_unit"], state_num
-            ),
-            "key": cens_conv_inst.input_params["api_key"],
+            "for": "{}:*".format(ip["census_high_res_geo_unit"]),
+            "in": "{}:{}".format(ip["census_low_res_geo_unit"], state_num),
+            "key": ip["api_key"],
         }
 
         response = api_call(url, params, timeout=1)
@@ -157,18 +153,16 @@ class USCensusSummaryPlugin:
 
         assert len(api_vars) <= 50  # TODO: split this case into multiple api calls
 
+        ip = cens_conv_inst.input_params
+
         url = "https://api.census.gov/data/{}/acs/acs5/profile".format(
-            cens_conv_inst.input_params["census_year"]
+            ip["census_year"]
         )
         params = {
             "get": ",".join(api_vars),
-            "for": "{}:*".format(
-                cens_conv_inst.input_params["census_high_res_geo_unit"]
-            ),
-            "in": "{}:{}".format(
-                cens_conv_inst.input_params["census_low_res_geo_unit"], state_num
-            ),
-            "key": cens_conv_inst.input_params["api_key"],
+            "for": "{}:*".format(ip["census_high_res_geo_unit"]),
+            "in": "{}:{}".format(ip["census_low_res_geo_unit"], state_num),
+            "key": ip["api_key"],
         }
 
         response = api_call(url, params, timeout=1)
@@ -249,17 +243,15 @@ class USCensusPUMSPlugin:
         Returns:
             the raw data table from the US Census data
         """
-        api_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
+        ip = cens_conv_inst.input_params
 
-        url = "https://api.census.gov/data/{}/acs/acs5/pums".format(
-            cens_conv_inst.input_params["census_year"]
-        )
+        api_vars = ip["census_fitting_vars"]
+
+        url = "https://api.census.gov/data/{}/acs/acs5/pums".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
-            "for": "{}:{}".format(
-                cens_conv_inst.input_params["census_low_res_geo_unit"], state_num
-            ),
-            "key": cens_conv_inst.input_params["api_key"],
+            "for": "{}:{}".format(ip["census_low_res_geo_unit"], state_num),
+            "key": ip["api_key"],
         }
 
         response = api_call(url, params, timeout=1)
