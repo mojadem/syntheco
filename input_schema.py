@@ -11,7 +11,7 @@ _schema_specs = {
     "common": {
         "census_year": int,
         "census_converter": And(str, Or("us", "canada")),
-        "census_fitting_vars": list[str],
+        "census_fitting_vars": [str],
         "census_fitting_procedure": str,
         Optional("output_log_file", default="sytheco_out.txt"): str,
         Optional("output_data_log_file", default="syntheco_data_out.txt"): str,
@@ -42,9 +42,9 @@ class SynthEcoSchema(Schema):
 
         # validate converter specific data
         if data["census_converter"] == "us":
-            validated_data |= self._validate_us_schema(data)
+            validated_data.update(self._validate_us_schema(data))
         elif data["census_converter"] == "canada":
-            validated_data |= self._validate_canada_schema(data)
+            validated_data.update(self._validate_canada_schema(data))
 
         if any(key not in validated_data.keys() for key in data.keys()):
             unused_keys = [
