@@ -36,7 +36,24 @@ _schema_specs = {
 
 
 class SynthEcoSchema(Schema):
+    """
+    SynthEcoSchema class
+
+    This class extends the Schema class to offer a customized validation
+    process relevant to SynthEco.
+    """
+
     def validate(self, data: dict):
+        """
+        validate
+        This will validate the SynthEco input file according to the schema
+        defined above. First, the common schema will be validated. Then,
+        the census converter will be determined from the input and it's
+        specific schema will be validated.
+
+        Returns:
+            the validated schema
+        """
         # validate common data
         validated_data: dict = self._validate_common_schema(data)
 
@@ -57,12 +74,36 @@ class SynthEcoSchema(Schema):
         return validated_data
 
     def _validate_common_schema(self, data: dict):
+        """
+        _validate_common_schema
+        A helper function for the main validate method which will validate the
+        common schema defined by the _schema_specs dictionary.
+
+        Returns:
+            the validated common schema
+        """
         return Schema(_schema_specs["common"], ignore_extra_keys=True).validate(data)
 
     def _validate_us_schema(self, data: dict):
+        """
+        _validate_us_schema
+        A helper function for the main validate method which will validate the
+        US schema defined by the _schema_specs dictionary.
+
+        Returns:
+            the validated US schema
+        """
         return Schema(_schema_specs["us"], ignore_extra_keys=True).validate(data)
 
     def _validate_canada_schema(self, data: dict):
+        """
+        _validate_canada_schema
+        A helper function for the main validate method which will validate the
+        Canada schema defined by the _schema_specs dictionary.
+
+        Returns:
+            the validated Canada schema
+        """
         return Schema(_schema_specs["canada"], ignore_extra_keys=True).validate(data)
 
 
