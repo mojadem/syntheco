@@ -8,31 +8,61 @@ This is the code for the US Census Plugins
 import pandas as pd
 import numpy as np
 
+import time
 import requests
 import requests_cache
-from requests.exceptions import Timeout
-from requests.exceptions import ConnectionError
+from requests.exceptions import HTTPError
 
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
 from logger import log
 
-# TODO: implement these variables into input file
-state_num = "06"
 
 requests_cache.install_cache("api-response-cache", backend="filesystem")
 
 
-def api_call(*args, **kwargs):
+def _api_call(url, params):
+    """
+    _api_call
+    A wrapper for requests.get() that includes logging, timing, and error handling.
+
+    returns:
+        pandas dataframe containing response content
+    """
     try:
-        response = requests.get(*args, **kwargs)
-    except (Timeout, ConnectionError) as e:
-        log("DEBUG", f"Failed API call: {e}")
-        response = api_call(*args, **kwargs)
+        start = time.time()
+        log("DEBUG", f"API call in progress...")
+        response = requests.get(url, params)
+        elapsed = time.time() - start
+    except HTTPError as e:
+        log("ERROR", f"Failed API call (HTTP ERROR): {e}")
     else:
-        log("DEBUG", f"Successful API call: {response.url}")
+        info = "from cache" if response.from_cache else f"took {round(elapsed)}s"
+        log("DEBUG", f"Successful API call ({info}): {response.url}")
     finally:
-        return response
+        data = response.json()
+        raw_df = pd.DataFrame(data[1:], columns=data[0])
+        return raw_df
+
+
+def _formulate_fips(raw_df, ip, api_vars):
+    """
+    _formulate_fips
+    Formulates the fips codes by appending the state and county codes, as well as
+    the tract code if that geography was specified. This will be set as the
+    index of the dataframe and the remaining columns will be set to the API variables.
+
+    returns:
+        the formatted dataframe
+    """
+    raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
+    if ip["census_high_res_geo_unit"] == "tract":
+        raw_df["FIPS"] += raw_df["tract"]
+
+    raw_df = raw_df[["FIPS"] + api_vars]
+    raw_df = raw_df.set_index("FIPS")
+
+    return raw_df
 
 
 class USCensusGlobalPlugin:
@@ -64,22 +94,12 @@ class USCensusGlobalPlugin:
         params = {
             "get": ",".join(api_vars),
             "for": "{}:*".format(ip["census_high_res_geo_unit"]),
-            "in": "{}:{}".format(ip["census_low_res_geo_unit"], state_num),
+            "in": "{}".format(ip["census_low_res_geo_unit"]),
             "key": ip["api_key"],
         }
 
-        response = api_call(url, params)
-        data = response.json()
-        raw_df = pd.DataFrame(data[1:], columns=data[0])
-
-        # formulate fips from area codes and set to first column
-        raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
-        if cens_conv_inst.input_params["census_high_res_geo_unit"] == "tract":
-            raw_df["FIPS"] += raw_df["tract"]
-
-        raw_df = raw_df[["FIPS"] + api_vars]
-        raw_df = raw_df.set_index("FIPS")
-
+        raw_df = _api_call(url, params)
+        raw_df = _formulate_fips(raw_df, ip, api_vars)
         return raw_df
 
     @hookimpl
@@ -164,22 +184,12 @@ class USCensusSummaryPlugin:
         params = {
             "get": ",".join(api_vars),
             "for": "{}:*".format(ip["census_high_res_geo_unit"]),
-            "in": "{}:{}".format(ip["census_low_res_geo_unit"], state_num),
+            "in": "{}".format(ip["census_low_res_geo_unit"]),
             "key": ip["api_key"],
         }
 
-        response = api_call(url, params)
-        data = response.json()
-        raw_df = pd.DataFrame(data[1:], columns=data[0])
-
-        # formulate fips from area codes and set to first column
-        raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
-        if cens_conv_inst.input_params["census_high_res_geo_unit"] == "tract":
-            raw_df["FIPS"] += raw_df["tract"]
-
-        raw_df = raw_df[["FIPS"] + api_vars]
-        raw_df = raw_df.set_index("FIPS")
-
+        raw_df = _api_call(url, params)
+        raw_df = _formulate_fips(raw_df, ip, api_vars)
         return raw_df
 
     @hookimpl
@@ -253,14 +263,11 @@ class USCensusPUMSPlugin:
         url = "https://api.census.gov/data/{}/acs/acs5/pums".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
-            "for": "{}:{}".format(ip["census_low_res_geo_unit"], state_num),
+            "for": "{}".format(ip["census_low_res_geo_unit"]),
             "key": ip["api_key"],
         }
 
-        response = api_call(url, params)
-        data = response.json()
-        raw_df = pd.DataFrame(data[1:], columns=data[0])
-
+        raw_df = _api_call(url, params)
         return raw_df
 
     @hookimpl

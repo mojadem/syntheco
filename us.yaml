@@ -1,7 +1,7 @@
 'census_year': 2020
 'census_converter': 'us'
 'census_high_res_geo_unit': 'tract'
-'census_low_res_geo_unit': 'state'
+'census_low_res_geo_unit': 'state:10'
 'census_fitting_vars': ['AGEP', 'SCHL', 'MAR', 'HINCP']
 'output_log_file': 'us.out.txt'
 'output_data_log_file': 'us_data_out.txt'
