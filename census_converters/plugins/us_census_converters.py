@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 
 import requests
+import requests_cache
 from requests.exceptions import Timeout
 from requests.exceptions import ConnectionError
 
@@ -17,7 +18,9 @@ from census_converters.census_converter import CensusConverter
 from logger import log
 
 # TODO: implement these variables into input file
-state_num = "10"
+state_num = "06"
+
+requests_cache.install_cache("api-response-cache", backend="filesystem")
 
 
 def api_call(*args, **kwargs):
@@ -65,7 +68,7 @@ class USCensusGlobalPlugin:
             "key": ip["api_key"],
         }
 
-        response = api_call(url, params, timeout=1)
+        response = api_call(url, params)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
@@ -165,7 +168,7 @@ class USCensusSummaryPlugin:
             "key": ip["api_key"],
         }
 
-        response = api_call(url, params, timeout=1)
+        response = api_call(url, params)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
@@ -254,7 +257,7 @@ class USCensusPUMSPlugin:
             "key": ip["api_key"],
         }
 
-        response = api_call(url, params, timeout=1)
+        response = api_call(url, params)
         data = response.json()
         raw_df = pd.DataFrame(data[1:], columns=data[0])
 
