@@ -3,10 +3,9 @@ import json
 import requests
 import requests_cache
 
-requests_cache.uninstall_cache()
 
 # TODO: dynamically skip based on command line options
-@pytest.mark.skip
+@pytest.mark.apitest
 class TestUSCensusAPI:
     def test_pl_api_endpoint(self):
         url = "https://api.census.gov/data/2020/dec/pl?get=P1_001N%2CH1_001N&for=county%3A%2A&in=state%3A10&key=e3061d8962ee2b9822717e18093c29337bca18df"
