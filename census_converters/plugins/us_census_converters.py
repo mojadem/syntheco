@@ -3,58 +3,84 @@ us_census_converters
 
 This is the code for the US Census Plugins
 """
-
-
 import pandas as pd
 import numpy as np
-
-import time
-import requests
 import requests_cache
-from requests.exceptions import HTTPError
+import time
+from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
+from datetime import timedelta
+from contextlib import nullcontext
 
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
 from logger import log
 
 
-requests_cache.install_cache("api-response-cache", backend="filesystem")
+class APIManager:
+    def __init__(self):
+        session = requests_cache.CachedSession(
+            "api-response-cache",
+            backend="filesystem",
+            expire_after=timedelta(days=1),
+        )
+        retry = Retry(total=5, backoff_factor=1)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("https://api.census.gov/data", adapter)
 
+        self.session = session
 
-def _api_call(url, params):
-    """
-    _api_call
-    A wrapper for requests.get() that includes logging, timing, and error handling.
-
-    returns:
-        pandas dataframe containing response content
-    """
-    try:
+    def api_call(self, url, params=None, disable_cache=False):
         start = time.time()
         log("DEBUG", f"API call in progress...")
-        response = requests.get(url, params)
-        elapsed = time.time() - start
-    except HTTPError as e:
-        log("ERROR", f"Failed API call (HTTP ERROR): {e}")
-    else:
-        info = "from cache" if response.from_cache else f"took {round(elapsed)}s"
-        log("DEBUG", f"Successful API call ({info}): {response.url}")
-    finally:
-        data = response.json()
-        raw_df = pd.DataFrame(data[1:], columns=data[0])
-        return raw_df
+
+        try:
+            context = self.session.cache_disabled() if disable_cache else nullcontext()
+            with context:
+                response = self.session.get(url, params=params, timeout=5)
+
+            response.raise_for_status()
+        # TODO: handle errors separately
+        except HTTPError as e:
+            log("ERROR", f"Failed API call (http error): {e}")
+            raise
+        except ConnectionError as e:
+            log("ERROR", f"Failed API call (connection error): {e}")
+            raise
+        except Timeout as e:
+            log("ERROR", f"Failed API call (timeout): {e}")
+            raise
+        except RequestException as e:
+            log("ERROR", f"Failed API call (unknown): {e}")
+            raise
+        else:
+            elapsed = time.time() - start
+            info = "from cache" if response.from_cache else f"took {round(elapsed)}s"
+            log("DEBUG", f"Successful API call ({info}): {response.url}")
+        finally:
+            return response.json()
 
 
-def _formulate_fips(raw_df, ip, api_vars):
+api_manager = APIManager()
+
+
+def _format_df(data, ip=None, api_vars=None, formulate_fips=True):
     """
-    _formulate_fips
-    Formulates the fips codes by appending the state and county codes, as well as
-    the tract code if that geography was specified. This will be set as the
-    index of the dataframe and the remaining columns will be set to the API variables.
+    _format_df
+    Helper function that will convert the json data received from the Census API
+    to a pandas dataframe with columns set appropriately. This will formulate
+    fips codes from the present geography columns, setting it as the index, as
+    well as set the remaining columns to the API variables.
 
     returns:
         the formatted dataframe
     """
+    raw_df = pd.DataFrame(data[1:], columns=data[0])
+
+    if not formulate_fips:  # pums converter will not formulate fips
+        return raw_df
+
     raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
     if ip["census_high_res_geo_unit"] == "tract":
         raw_df["FIPS"] += raw_df["tract"]
@@ -98,8 +124,8 @@ class USCensusGlobalPlugin:
             "key": ip["api_key"],
         }
 
-        raw_df = _api_call(url, params)
-        raw_df = _formulate_fips(raw_df, ip, api_vars)
+        data = api_manager.api_call(url, params)
+        raw_df = _format_df(data, ip, api_vars)
         return raw_df
 
     @hookimpl
@@ -189,8 +215,8 @@ class USCensusSummaryPlugin:
             "key": ip["api_key"],
         }
 
-        raw_df = _api_call(url, params)
-        raw_df = _formulate_fips(raw_df, ip, api_vars)
+        data = api_manager.api_call(url, params)
+        raw_df = _format_df(data, ip, api_vars)
         return raw_df
 
     @hookimpl
@@ -268,7 +294,8 @@ class USCensusPUMSPlugin:
             "key": ip["api_key"],
         }
 
-        raw_df = _api_call(url, params)
+        data = api_manager.api_call(url, params)
+        raw_df = _format_df(data, formulate_fips=False)
         return raw_df
 
     @hookimpl
