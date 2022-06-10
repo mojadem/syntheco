@@ -56,7 +56,7 @@ class TestUSInput:
             "census_fitting_procedure": "ipf",
             "debug_limit_geo_codes": 10,
             "parallel_num_cores": 4,
-            "api_key": "e3061d8962ee2b9822717e18093c29337bca18df",
+            "api_key": "key",
         }
 
     def test_valid_us_input(self, schema_obj, us_input):

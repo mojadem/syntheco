@@ -32,7 +32,7 @@ class APIManager:
         self.session = session
         self.base_url = base_url
 
-    def api_call(self, url="", params=None, disable_cache=False):
+    def api_call(self, url="", params=None):
         start = time.time()
         log("DEBUG", f"API call in progress...")
 
