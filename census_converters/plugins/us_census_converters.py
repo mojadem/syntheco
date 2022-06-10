@@ -11,7 +11,6 @@ from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestExce
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 from datetime import timedelta
-from contextlib import nullcontext
 
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
@@ -27,38 +26,37 @@ class APIManager:
         )
         retry = Retry(total=5, backoff_factor=1)
         adapter = HTTPAdapter(max_retries=retry)
-        session.mount("https://api.census.gov/data", adapter)
+        base_url = "https://api.census.gov/data"
+        session.mount(base_url, adapter)
 
         self.session = session
+        self.base_url = base_url
 
-    def api_call(self, url, params=None, disable_cache=False):
+    def api_call(self, url="", params=None, disable_cache=False):
         start = time.time()
         log("DEBUG", f"API call in progress...")
 
         try:
-            context = self.session.cache_disabled() if disable_cache else nullcontext()
-            with context:
-                response = self.session.get(url, params=params, timeout=5)
-
+            response = self.session.get(self.base_url + url, params=params, timeout=5)
             response.raise_for_status()
         # TODO: handle errors separately
         except HTTPError as e:
-            log("ERROR", f"Failed API call (http error): {e}")
+            print("ERROR", f"Failed API call (http error): {e}")
             raise
         except ConnectionError as e:
-            log("ERROR", f"Failed API call (connection error): {e}")
+            print("ERROR", f"Failed API call (connection error): {e}")
             raise
         except Timeout as e:
-            log("ERROR", f"Failed API call (timeout): {e}")
+            print("ERROR", f"Failed API call (timeout): {e}")
             raise
         except RequestException as e:
-            log("ERROR", f"Failed API call (unknown): {e}")
+            print("ERROR", f"Failed API call (unknown): {e}")
             raise
         else:
             elapsed = time.time() - start
             info = "from cache" if response.from_cache else f"took {round(elapsed)}s"
             log("DEBUG", f"Successful API call ({info}): {response.url}")
-        finally:
+
             return response.json()
 
 
@@ -116,7 +114,7 @@ class USCensusGlobalPlugin:
 
         ip = cens_conv_inst.input_params
 
-        url = "https://api.census.gov/data/{}/dec/pl".format(ip["census_year"])
+        url = "/{}/dec/pl".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
             "for": "{}:*".format(ip["census_high_res_geo_unit"]),
@@ -205,9 +203,7 @@ class USCensusSummaryPlugin:
 
         ip = cens_conv_inst.input_params
 
-        url = "https://api.census.gov/data/{}/acs/acs5/profile".format(
-            ip["census_year"]
-        )
+        url = "/{}/acs/acs5/profile".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
             "for": "{}:*".format(ip["census_high_res_geo_unit"]),
@@ -287,7 +283,7 @@ class USCensusPUMSPlugin:
 
         api_vars = ip["census_fitting_vars"]
 
-        url = "https://api.census.gov/data/{}/acs/acs5/pums".format(ip["census_year"])
+        url = "/{}/acs/acs5/pums".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
             "for": "{}".format(ip["census_low_res_geo_unit"]),
