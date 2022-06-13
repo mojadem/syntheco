@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import MagicMock
 import responses
 from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
+import json
 
 import census_converters.plugins.us_census_converters as us
 
@@ -104,7 +105,7 @@ class TestUSCensusPlugins:
         input_params = MagicMock()
         input_params.data = {
             "census_year": 2020,
-            "census_fitting_vars": ["AGEP", "SCHL", "MAR", "HINCP"],
+            "census_fitting_vars": ["BDSP"],
             "census_high_res_geo_unit": "county",
             "census_low_res_geo_unit": "state:10",
             "api_key": "key",
@@ -126,6 +127,10 @@ class TestUSCensusPlugins:
     def cens_conv_inst(self, ip):
         mock_census_converter = MagicMock()
         mock_census_converter.input_params = ip
+
+        with open("census_converters/plugins/us_pums_info.json") as meta:
+            mock_census_converter.metadata_json = json.load(meta)
+
         return mock_census_converter
 
     @pytest.fixture
@@ -223,3 +228,150 @@ class TestUSCensusPlugins:
             and output["geos_of_interest"] == expected_output["geos_of_interest"]
         )
         assert output_matched
+
+    def test_summary_read_raw_data_into_pandas(
+        self, cens_conv_inst, mock_api_manager, mock_format_df
+    ):
+        mock_api_call_ret_val = [
+            [
+                "DP04_0039E",
+                "DP04_0040E",
+                "DP04_0041E",
+                "DP04_0042E",
+                "DP04_0043E",
+                "DP04_0044E",
+                "state",
+                "county",
+            ],
+            ["4021", "21129", "46047", "88742", "54050", "10253", "10", "003"],
+            ["1109", "3736", "26295", "74145", "28034", "7804", "10", "005"],
+            ["699", "4101", "13745", "36720", "14367", "3441", "10", "001"],
+        ]
+        mock_api_manager.api_call.return_value = mock_api_call_ret_val
+
+        mock_format_df_ret_val = pd.DataFrame(
+            {
+                "FIPS": ["10003", "10005", "10001"],
+                "DP04_0039E": ["4021", "1109", "699"],
+                "DP04_0040E": ["21129", "3736", "4101"],
+                "DP04_0041E": ["46047", "26295", "13745"],
+                "DP04_0042E": ["88742", "74145", "36720"],
+                "DP04_0043E": ["54050", "28034", "14367"],
+                "DP04_0044E": ["10253", "7804", "3441"],
+            }
+        ).set_index("FIPS")
+        mock_format_df.return_val = mock_format_df_ret_val
+
+        expected_output = mock_format_df_ret_val
+        output = us.USCensusSummaryPlugin.read_raw_data_into_pandas(cens_conv_inst)
+
+        expected_api_call_url = "/2020/acs/acs5/profile"
+        expected_api_call_params = {
+            "get": "DP04_0039E,DP04_0040E,DP04_0041E,DP04_0042E,DP04_0043E,DP04_0044E",
+            "for": "county:*",
+            "in": "state:10",
+            "key": "key",
+        }
+        mock_api_manager.api_call.assert_called_with(
+            expected_api_call_url, expected_api_call_params
+        )
+
+        expected_format_df_data = mock_api_call_ret_val
+        expected_format_df_ip = cens_conv_inst.input_params
+        expected_format_df_api_vars = [
+            "DP04_0039E",
+            "DP04_0040E",
+            "DP04_0041E",
+            "DP04_0042E",
+            "DP04_0043E",
+            "DP04_0044E",
+        ]
+        mock_format_df.assert_called_with(
+            expected_format_df_data, expected_format_df_ip, expected_format_df_api_vars
+        )
+        assert output.equals(expected_output)
+
+    def test_summary_transform(self, cens_conv_inst):
+        cens_conv_inst.raw_data_df = pd.DataFrame(
+            {
+                "FIPS": ["10003", "10005", "10001"],
+                "DP04_0039E": ["4021", "1109", "699"],
+                "DP04_0040E": ["21129", "3736", "4101"],
+                "DP04_0041E": ["46047", "26295", "13745"],
+                "DP04_0042E": ["88742", "74145", "36720"],
+                "DP04_0043E": ["54050", "28034", "14367"],
+                "DP04_0044E": ["10253", "7804", "3441"],
+            }
+        ).set_index("FIPS")
+
+        expected_output = {
+            "BDSP": pd.DataFrame(
+                {
+                    "FIPS": [
+                        "10003",
+                        "10003",
+                        "10003",
+                        "10003",
+                        "10003",
+                        "10003",
+                        "10005",
+                        "10005",
+                        "10005",
+                        "10005",
+                        "10005",
+                        "10005",
+                        "10001",
+                        "10001",
+                        "10001",
+                        "10001",
+                        "10001",
+                        "10001",
+                    ],
+                    "BDSP": [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                    ],
+                    "total": [
+                        4021.0,
+                        21129.0,
+                        46047.0,
+                        88742.0,
+                        54050.0,
+                        10253.0,
+                        1109.0,
+                        3736.0,
+                        26295.0,
+                        74145.0,
+                        28034.0,
+                        7804.0,
+                        699.0,
+                        4101.0,
+                        13745.0,
+                        36720.0,
+                        14367.0,
+                        3441.0,
+                    ],
+                }
+            ).set_index("FIPS")
+        }
+        output = us.USCensusSummaryPlugin.transform(cens_conv_inst)
+
+        keys_match = output.keys() == expected_output.keys()
+        data_match = output["BDSP"].equals(expected_output["BDSP"])
+        assert keys_match and data_match

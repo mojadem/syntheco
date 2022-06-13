@@ -194,7 +194,8 @@ class USCensusSummaryPlugin:
         """
         # retrieve api vars from metadata_json
         metadata_json = cens_conv_inst.metadata_json
-        api_vars = [metadata_json[v]["profile_vars"] for v in metadata_json]
+        pums_vars = cens_conv_inst.input_params["census_fitting_vars"]
+        api_vars = [metadata_json[v]["profile_vars"] for v in pums_vars]
         api_vars = [
             pv for v in api_vars for pv in v
         ]  # flatten nested list of profile_vars
@@ -224,7 +225,7 @@ class USCensusSummaryPlugin:
         Returns:
             an updated dataframe to be set to processed_data_df
         """
-        pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
+        pums_vars = cens_conv_inst.input_params["census_fitting_vars"]
         proc_df = cens_conv_inst.raw_data_df.copy()
 
         sum_tables = {}
