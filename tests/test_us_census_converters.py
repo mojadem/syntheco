@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import MagicMock
 import responses
 from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
 import json
@@ -8,6 +8,7 @@ from collections import namedtuple
 from typing import Callable
 
 import census_converters.plugins.us_census_converters as us
+
 
 FunctionCallParameters = namedtuple("FunctionCallParameters", ["args", "kwargs"])
 FunctionCallMetadata = namedtuple("FunctionCallMetadata", ["params", "return_value"])
@@ -317,6 +318,20 @@ class TestUSCensusPlugins:
             us.USCensusPUMSPlugin.read_raw_data_into_pandas,
         )
 
+    def transform_scaffold(
+        self, cens_conv_inst, expected_output: dict, transform_func: Callable
+    ):
+        output: dict = transform_func(cens_conv_inst)
+
+        for (data, expected_data) in zip(output.values(), expected_output.values()):
+            assert type(data) == type(expected_data)
+
+            if type(data) == pd.DataFrame:
+                expected_data = expected_data.astype(data.dtypes)
+                assert data.equals(expected_data)
+            elif type(data) == list:
+                assert data == expected_data
+
     def test_global_transform(self, cens_conv_inst):
         cens_conv_inst.raw_data_df = pd.DataFrame(
             {
@@ -345,18 +360,10 @@ class TestUSCensusPlugins:
             "number_households_by_geo": expected_nh_df,
             "geos_of_interest": expected_geos_of_interest,
         }
-        output = us.USCensusGlobalPlugin.transform(cens_conv_inst)
 
-        output_matched = (
-            output["total_population_by_geo"].equals(
-                expected_output["total_population_by_geo"]
-            )
-            and output["number_households_by_geo"].equals(
-                expected_output["number_households_by_geo"]
-            )
-            and output["geos_of_interest"] == expected_output["geos_of_interest"]
+        self.transform_scaffold(
+            cens_conv_inst, expected_output, us.USCensusGlobalPlugin.transform
         )
-        assert output_matched
 
     def test_summary_transform(self, cens_conv_inst):
         cens_conv_inst.raw_data_df = pd.DataFrame(
@@ -401,8 +408,38 @@ class TestUSCensusPlugins:
                 }
             ).set_index("FIPS")
         }
-        output = us.USCensusSummaryPlugin.transform(cens_conv_inst)
 
-        keys_match = output.keys() == expected_output.keys()
-        data_match = output["BDSP"].equals(expected_output["BDSP"])
-        assert keys_match and data_match
+        self.transform_scaffold(
+            cens_conv_inst, expected_output, us.USCensusSummaryPlugin.transform
+        )
+
+    def test_pums_transform(self, cens_conv_inst):
+        cens_conv_inst.raw_data_df = pd.DataFrame(
+            {
+                "BDSP": ["-1", "4", "3", "3", "2", "1", "-1", "3", "7"],
+                "state": ["10" for _ in range(9)],
+            }
+        )
+
+        expected_cat_df = pd.DataFrame(
+            {
+                "BDSP_V": ["-1", "4", "3", "3", "2", "1", "-1", "3", "7"],
+                "state": ["10" for _ in range(9)],
+                "BDSP": ["1", "5", "4", "4", "3", "2", "1", "4", "6"],
+            }
+        )
+        expected_freq_df = pd.DataFrame(
+            {
+                "BDSP": ["1", "2", "3", "4", "5", "6"],
+                "total": ["2", "1", "1", "3", "1", "1"],
+            }
+        )
+
+        expected_output = {
+            "categorical_table": expected_cat_df,
+            "frequency_table": expected_freq_df,
+        }
+
+        self.transform_scaffold(
+            cens_conv_inst, expected_output, us.USCensusPUMSPlugin.transform
+        )

@@ -304,7 +304,7 @@ class USCensusPUMSPlugin:
         Returns:
             an updated dataframe to be set to processed_data_df
         """
-        pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
+        pums_vars = cens_conv_inst.input_params["census_fitting_vars"]
         proc_df = cens_conv_inst.raw_data_df.astype(np.int64)
 
         for var in pums_vars:
