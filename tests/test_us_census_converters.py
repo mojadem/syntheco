@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec, patch
 import responses
 from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
 import json
@@ -8,10 +8,6 @@ from collections import namedtuple
 from typing import Callable
 
 import census_converters.plugins.us_census_converters as us
-
-
-FunctionCallParameters = namedtuple("FunctionCallParameters", ["args", "kwargs"])
-FunctionCallMetadata = namedtuple("FunctionCallMetadata", ["params", "return_value"])
 
 
 class TestAPIManager:
@@ -105,6 +101,9 @@ class TestFormatDF:
         assert df.equals(expected_df)
 
 
+FunctionCallMetadata = namedtuple("FunctionCallMetadata", ["params", "return_value"])
+
+
 class TestUSCensusPlugins:
     @pytest.fixture
     def ip(self):
@@ -146,37 +145,40 @@ class TestUSCensusPlugins:
         format_df_meta: FunctionCallMetadata,
         read_func: Callable,
     ):
-        us.api_manager = MagicMock()
-        us.api_manager.api_call.return_value = api_call_meta.return_value
+        mock_api_call = create_autospec(us.api_manager.api_call)
+        mock_api_call.return_value = api_call_meta.return_value
 
-        us._format_df = MagicMock()
-        us._format_df.return_value = format_df_meta.return_value
+        mock_format_df = create_autospec(us._format_df)
+        mock_format_df.return_value = format_df_meta.return_value
 
         expected_output: pd.DataFrame = format_df_meta.return_value
-        output: pd.DataFrame = read_func(cens_conv_inst)
 
-        us.api_manager.api_call.assert_called_once_with(
-            *api_call_meta.params.args, **api_call_meta.params.kwargs
+        api_call_patch = (
+            "census_converters.plugins.us_census_converters.api_manager.api_call",
+            mock_api_call,
         )
-        us._format_df.assert_called_once_with(
-            *format_df_meta.params.args, **format_df_meta.params.kwargs
+        format_df_patch = (
+            "census_converters.plugins.us_census_converters._format_df",
+            mock_format_df,
         )
+        with patch(*api_call_patch), patch(*format_df_patch):
+            output: pd.DataFrame = read_func(cens_conv_inst)
+
+        mock_api_call.assert_called_once_with(**api_call_meta.params)
+        mock_format_df.assert_called_once_with(**format_df_meta.params)
 
         assert output.equals(expected_output)
 
     def test_global_read(self, cens_conv_inst):
-        api_call_params = FunctionCallParameters(
-            [
-                "/2020/dec/pl",
-                {
-                    "get": "P1_001N,H1_001N",
-                    "for": "county:*",
-                    "in": "state:10",
-                    "key": "key",
-                },
-            ],
-            {},
-        )
+        api_call_params = {
+            "url": "/2020/dec/pl",
+            "params": {
+                "get": "P1_001N,H1_001N",
+                "for": "county:*",
+                "in": "state:10",
+                "key": "key",
+            },
+        }
         api_call_return_value = [
             ["P1_001N", "H1_001N", "state", "county"],
             ["570719", "233747", "10", "003"],
@@ -185,17 +187,14 @@ class TestUSCensusPlugins:
         ]
         api_call_meta = FunctionCallMetadata(api_call_params, api_call_return_value)
 
-        format_df_params = FunctionCallParameters(
-            [
-                api_call_meta.return_value,
-                cens_conv_inst.input_params,
-                [
-                    "P1_001N",
-                    "H1_001N",
-                ],
+        format_df_params = {
+            "data": api_call_meta.return_value,
+            "ip": cens_conv_inst.input_params,
+            "api_vars": [
+                "P1_001N",
+                "H1_001N",
             ],
-            {},
-        )
+        }
         format_df_return_value = pd.DataFrame(
             {
                 "FIPS": ["10003", "10005", "10001"],
@@ -213,18 +212,15 @@ class TestUSCensusPlugins:
         )
 
     def test_summary_read(self, cens_conv_inst):
-        api_call_params = FunctionCallParameters(
-            [
-                "/2020/acs/acs5/profile",
-                {
-                    "get": "DP04_0039E,DP04_0040E,DP04_0041E,DP04_0042E,DP04_0043E,DP04_0044E",
-                    "for": "county:*",
-                    "in": "state:10",
-                    "key": "key",
-                },
-            ],
-            {},
-        )
+        api_call_params = {
+            "url": "/2020/acs/acs5/profile",
+            "params": {
+                "get": "DP04_0039E,DP04_0040E,DP04_0041E,DP04_0042E,DP04_0043E,DP04_0044E",
+                "for": "county:*",
+                "in": "state:10",
+                "key": "key",
+            },
+        }
         api_call_return_value = [
             [
                 "DP04_0039E",
@@ -242,21 +238,18 @@ class TestUSCensusPlugins:
         ]
         api_call_meta = FunctionCallMetadata(api_call_params, api_call_return_value)
 
-        format_df_params = FunctionCallParameters(
-            [
-                api_call_meta.return_value,
-                cens_conv_inst.input_params,
-                [
-                    "DP04_0039E",
-                    "DP04_0040E",
-                    "DP04_0041E",
-                    "DP04_0042E",
-                    "DP04_0043E",
-                    "DP04_0044E",
-                ],
+        format_df_params = {
+            "data": api_call_meta.return_value,
+            "ip": cens_conv_inst.input_params,
+            "api_vars": [
+                "DP04_0039E",
+                "DP04_0040E",
+                "DP04_0041E",
+                "DP04_0042E",
+                "DP04_0043E",
+                "DP04_0044E",
             ],
-            {},
-        )
+        }
         format_df_return_value = pd.DataFrame(
             {
                 "FIPS": ["10003", "10005", "10001"],
@@ -278,13 +271,10 @@ class TestUSCensusPlugins:
         )
 
     def test_pums_read(self, cens_conv_inst):
-        api_call_params = FunctionCallParameters(
-            [
-                "/2020/acs/acs5/pums",
-                {"get": "BDSP", "for": "state:10", "key": "key"},
-            ],
-            {},
-        )
+        api_call_params = {
+            "url": "/2020/acs/acs5/pums",
+            "params": {"get": "BDSP", "for": "state:10", "key": "key"},
+        }
         api_call_return_value = [
             ["BDSP", "state"],
             ["-1", "10"],
@@ -299,10 +289,10 @@ class TestUSCensusPlugins:
         ]
         api_call_meta = FunctionCallMetadata(api_call_params, api_call_return_value)
 
-        format_df_params = FunctionCallParameters(
-            [api_call_meta.return_value],
-            {"formulate_fips": False},
-        )
+        format_df_params = {
+            "data": api_call_meta.return_value,
+            "formulate_fips": False,
+        }
         format_df_return_value = pd.DataFrame(
             {
                 "BDSP": ["-1", "4", "3", "3", "2", "1", "-1", "3", "4"],

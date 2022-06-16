@@ -37,20 +37,20 @@ class APIManager:
         log("DEBUG", f"API call in progress...")
 
         try:
-            response = self.session.get(self.base_url + url, params=params, timeout=5)
+            response = self.session.get(self.base_url + url, params=params, timeout=10)
             response.raise_for_status()
         # TODO: handle errors separately
         except HTTPError as e:
-            print("ERROR", f"Failed API call (http error): {e}")
+            log("ERROR", f"Failed API call (HTTPError): {e}")
             raise
         except ConnectionError as e:
-            print("ERROR", f"Failed API call (connection error): {e}")
+            log("ERROR", f"Failed API call (ConnectionError): {e}")
             raise
         except Timeout as e:
-            print("ERROR", f"Failed API call (timeout): {e}")
+            log("ERROR", f"Failed API call (Timeout): {e}")
             raise
         except RequestException as e:
-            print("ERROR", f"Failed API call (unknown): {e}")
+            log("ERROR", f"Failed API call (RequestException): {e}")
             raise
         else:
             elapsed = time.time() - start

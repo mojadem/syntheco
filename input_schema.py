@@ -5,7 +5,7 @@ A module to house the input schema for the yaml input files
 """
 
 import os
-from schema import Schema, And, Or, Optional, SchemaError
+from schema import Schema, And, Or, Optional
 
 _schema_specs = {
     "common": {

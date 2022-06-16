@@ -3,7 +3,6 @@ import json
 import requests
 
 
-# TODO: dynamically skip based on command line options
 @pytest.mark.apitest
 class TestUSCensusAPI:
     def test_pl_api_endpoint(self):
