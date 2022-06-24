@@ -20,8 +20,11 @@ def random_round_to_integer(float_value, seed=None):
     returns float value that is rounded to an integer
 
     """
-    threshold = float_value - int(float_value)
+    rn.seed(seed)
     r_num = rn.random()
+
+    threshold = float_value - int(float_value)
+
     if r_num < threshold:
         return math.ceil(float_value)
     else:
