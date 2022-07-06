@@ -61,7 +61,7 @@ def main():
                                  converter_=glob_table_conv)
 
     log("INFO", "Global Tables Created")
-    data_log(f"{global_tables}")
+    #data_log(f"{global_tables}")
 
     log("INFO", "Setting up Census Converters")
     pums_table_conv = CensusConverter(ip, census_conv, "pums")

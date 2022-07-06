@@ -90,7 +90,7 @@ class CensusFittingProcedure:
 
     def perform_fitting(self):
         """
-        fitting
+        perform_fitting
 
         Stub function that wraps to the plugin specific implementation
         """

@@ -62,6 +62,9 @@ class IPFCensusHouseholdFittingProcedure:
             num_houses = fit_proc_inst.global_tables.data['number_households_by_geo']
             summary_tables = fit_proc_inst.summary_tables.data
             pums_freq_org = fit_proc_inst.pums_tables.data['frequency_table']
+            pums_hier = fit_proc_inst.pums_tables.data['categorical_table']
+            alpha = fit_proc_inst.input_params['ipf_alpha']
+            K = fit_proc_inst.input_params['ipf_k']
 
             fit_res = {}
             unconverged_geos = []
@@ -88,14 +91,14 @@ class IPFCensusHouseholdFittingProcedure:
                 # set up a list with all of the function calls that need to be made to the fitting procedure
                 fitting_arg_list.append([geo_code, summary_geo_tables, pums_freq, fitting_vars, n_houses,
                                          max_iterations, convergence_rate, rate_tolerance])
-                # Parallel execution
-                with mp.Manager() as manager:
-                    results_p = manager.dict()
-                    arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
-                    with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                        pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
+            # Parallel execution
+            with mp.Manager() as manager:
+                results_p = manager.dict()
+                arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
+                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                    pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
 
-                    results = dict(results_p)
+                results = dict(results_p)
 
             # Post process checking
             unconverged_geocodes = []
@@ -112,7 +115,19 @@ class IPFCensusHouseholdFittingProcedure:
             else:
                 log("INFO", "--IPF--: All Geographic Areas Converged")
 
-            return post_results
+            s_argList = []
+            for g, f_dict in post_results.items():
+                s_argList.append([pums_hier, f_dict, g, fitting_vars, alpha, K])
+
+            with mp.Manager() as manager:
+                sam_dict = manager.dict()
+                arg_list = [tuple([sam_dict] + x) for x in s_argList]
+                print("arg_list = {}".format(arg_list))
+                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                    pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
+                sample_results = dict(sam_dict)
+
+            return sample_results
 
         except Exception as e:
             raise SynthEcoError("{}".format(e))
@@ -202,3 +217,81 @@ class IPFCensusHouseholdFittingProcedure:
                                                                                   results_rounded['total'].sum(),
                                                                                   n_houses))
             fitting_results[geo_code] = (results[1],results_rounded)
+
+    @staticmethod
+    def calculate_ordinal_distance(pums_val, tab_val, r, k):
+        '''
+        calculate_ordinal_distance
+
+        calculates the distance between two variables if the range is ordinal
+        i.e. the range has some progression and is not "categorical", such as it is a size, or an age range
+
+        pums_val: the value of the fitted variable from pums
+        tab_val: the summary table value
+        r:  distance parameter
+        k: fitting constant
+
+        Returns:
+            ordinal distance between the pums_val and tab_val
+        '''
+        return 1-abs((float(pums_val) - float(tab_val))/r)**k
+
+    @staticmethod
+    def calculate_categorical_distance(pums_val, tab_val, alpha):
+        '''
+        Document
+        '''
+        return float(alpha) if float(pums_val) == float(tab_val) else 1.0-alpha
+
+    @staticmethod
+    def _select_households(sample_dict, pums, fit_table, geo_code, fitting_vars,
+                         metadata_json, alpha=0.0, k=0.001):
+        try:
+            print("Running select households {}".format(geo_code))
+            mat_array = np.array([1.0 for i in range(0,fit_table.shape[0]*pums.shape[0])])
+            distance_matrix = mat_array.reshape(fit_table.shape[0],pums.shape[0])
+            print("--400-- {}".format(fitting_vars))
+            for var in fitting_vars:
+                print("var = {}".format(var))
+                pums_ds = metadata_json[var]
+                table_values = fit_table[var]
+                pums_values = pums[var]
+                # r is the difference between the maximum and minimum value of the fitting var
+                print("---1---")
+                if pums_ds['sample_type'] == "ordinal":
+                    r = int(pums_values.max()) - int(pums_values.min())
+                    for i in range(0,distance_matrix.shape[0]):
+                        table_value = table_values[table_values.index[i]]
+                        distance_tmp = np.array([calculate_ordinal_distance(x, table_value, r, k) for x in list(pums_values)])
+                    distance_matrix[i] = distance_matrix[i] * distance_tmp
+                else:
+                    for i in range(0,distance_matrix.shape[0]):
+                        table_value = table_values[table_values.index[i]]
+                        distance_tmp = np.array([calculate_categorical_distance(x,table_value,0.0) for x in list(pums_values)])
+                        distance_matrix[i] = distance_matrix[i] * distance_tmp
+
+            print("---2---")
+            distance_sums = distance_matrix.sum(axis=1)
+            prob_matrix = np.apply_along_axis(lambda x: x/distance_sums, alpha, distance_matrix)
+            print("---3---")
+            sample_inds = []
+            for i in range(0,fit_table.shape[0]):
+                t_i = list(fit_table.index)[i]
+                n_samples = int(fit_table.loc[t_i,'total'])
+                prob_row = prob_matrix[i]
+                if (prob_row < 0).any():
+                    log("WARNING","There are zeros in the probablility row for geocode " +
+                        "{} row {} which could produce erroneous results".format(geo_code,i))
+                if (np.isinf(prob_row)).any():
+                    log("WARNING","There are infinities in the probablility row for geocode " +
+                        "{} row {}which could produce erroneous results".format(geo_code,i))
+                inds_samp = pd.Series(pums_h_sub_df.index)
+                sample_inds = sample_inds + list(inds_samp.sample(n_samples,replace=True, weights=prob_row))
+
+            sample_dict[geo_code] = sample_inds
+        except Exception as e:
+            SynthEcoError("There was a problem in parallel select_housholds:\n{}".format(e))
+
+    @staticmethod
+    def _select_households_helper(args):
+        return IPFCensusHouseholdFittingProcedure._select_households(*args)
