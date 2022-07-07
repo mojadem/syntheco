@@ -18,13 +18,13 @@ class CanadaCensusGlobalPlugin:
     CanadaCensusGlobalPlugin
 
     This is class that houses the implemented hooks for the canada census plugins
-    for global Tables
+    for global tables
     """
     @hookimpl
     def read_raw_data_into_pandas(cens_conv_inst):
         """
         _read_raw_data_into_pandas
-        Private member that reads defines how the raw data is read into pandas
+        Private member that defines how the raw data is read into pandas
         data frame for the conversion
 
         Returns:
@@ -224,6 +224,7 @@ class CanadaCensusSummaryPlugin:
                                                    if str(x[var]) in com_keys else np.NaN, axis=1)
                     sum_df = sum_df.dropna(axis=0) \
                                    .drop(columns=['total_org'])
+                sum_df = sum_df.set_index('GEO_CODE')
                 sum_df.name = "{} Summary Table".format(var)
                 log("DEBUG", "sum_df_4 {}:\n{}".format(var, sum_df))
                 sum_tables[var] = sum_df

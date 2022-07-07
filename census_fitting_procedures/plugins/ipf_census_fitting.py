@@ -78,7 +78,7 @@ class IPFCensusHouseholdFittingProcedure:
                 for var in fitting_vars:
                     log("DEBUG", "--IPF--: Transforming {} {}".format(geo_code, var))
                     sum_t_df = summary_tables[var]
-                    sum_t_df = sum_t_df.set_index('GEO_CODE')
+                    # sum_t_df = sum_t_df.set_index('GEO_CODE')
 
                     sum_g_df = sum_t_df.loc[geo_code, ].reset_index().set_index([var])
 
