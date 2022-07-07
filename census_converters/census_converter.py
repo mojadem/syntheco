@@ -27,8 +27,10 @@ plugin_map = {'canada': {'module': "census_converters.plugins.canada_census_conv
                          'pums': "CanadaCensusPUMSPlugin",
                          'summary': "CanadaCensusSummaryPlugin"},
               'us': {'module': 'census_converters.plugins.us_census_converters',
-                     'global': 'us_census_global_converter',
-                     'summary': 'us_census_summary_converter'}}
+                     'global': 'USCensusGlobalPlugin',
+                     'metadata_json': "{}/plugins/us_pums_info.json".format(Path(__file__).parent),
+                     'pums': 'USCensusPUMSPlugin',
+                     'summary': 'USCensusSummaryPlugin'}}
 
 
 def initialize(census_converter="canada", table_type="global"):
