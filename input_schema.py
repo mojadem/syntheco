@@ -111,8 +111,6 @@ class SynthEcoSchema(Schema):
 
 _schema = SynthEcoSchema({})  # initialized with empty schema
 
->>>>>>> main
-
 """
 For Testing
 """

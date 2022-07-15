@@ -10,6 +10,7 @@ from census_fitting_procedures.census_fitting_procedure import CensusFittingProc
 from error import SynthEcoError
 from logger import log, data_log
 
+
 class CensusFittingResult:
     def __init__(self, converter_=None,
                  data_=None):
@@ -23,8 +24,8 @@ class CensusFittingResult:
                    and future caching
         """
 
-        if not isinstance(converter_,CensusFittingProcedure):
-            raise SynthEcoError("Trying to initialize CensusFittingResult with "+
+        if not isinstance(converter_, CensusFittingProcedure):
+            raise SynthEcoError("Trying to initialize CensusFittingResult with " +
                                 "plugin on the wrong type {}".format(type(converter_)))
 
         self.converter = converter_
@@ -40,5 +41,5 @@ class CensusFittingResult:
         """
 
         return '\n'.join(["Census Fitting Result",
-                          "------------------------------------------------------"] +
-                          ["{}:\n{}".format(x,self.data[x]) for x in list(self.data)[0:10]])
+                         "------------------------------------------------------"] +
+                         ["{}:\n{}".format(x, self.data[x]) for x in list(self.data)[0:10]])
