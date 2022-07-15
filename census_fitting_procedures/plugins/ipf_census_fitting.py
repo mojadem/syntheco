@@ -56,12 +56,16 @@ class IPFCensusHouseholdFittingProcedure:
             convergence_rate = fit_proc_inst.input_params["ipf_convergence_rate"]
             rate_tolerance = fit_proc_inst.input_params["ipf_rate_tolerance"]
 
-            #SynthEco Params
+            # SynthEco Params
             fitting_vars = fit_proc_inst.input_params["census_fitting_vars"]
             geo_codes_of_interest = fit_proc_inst.global_tables.data['geos_of_interest']
             num_houses = fit_proc_inst.global_tables.data['number_households_by_geo']
             summary_tables = fit_proc_inst.summary_tables.data
             pums_freq_org = fit_proc_inst.pums_tables.data['frequency_table']
+            pums_hier = fit_proc_inst.pums_tables.data['categorical_table']
+            metadata_json = fit_proc_inst.global_tables.data['census_variable_metadata']
+            alpha = fit_proc_inst.input_params['ipf_alpha']
+            K = fit_proc_inst.input_params['ipf_k']
 
             fit_res = {}
             unconverged_geos = []
@@ -88,31 +92,43 @@ class IPFCensusHouseholdFittingProcedure:
                 # set up a list with all of the function calls that need to be made to the fitting procedure
                 fitting_arg_list.append([geo_code, summary_geo_tables, pums_freq, fitting_vars, n_houses,
                                          max_iterations, convergence_rate, rate_tolerance])
-                # Parallel execution
-                with mp.Manager() as manager:
-                    results_p = manager.dict()
-                    arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
-                    with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                        pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
+            # Parallel execution
+            with mp.Manager() as manager:
+                results_p = manager.dict()
+                arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
+                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                    pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
 
-                    results = dict(results_p)
+                results = dict(results_p)
 
             # Post process checking
             unconverged_geocodes = []
             post_results = {}
-            for g,r in results.items():
+            for g, r in results.items():
                 if r[0] == 0:
                     unconverged_geocodes.append(g)
                 post_results[g] = r[1]
 
             if len(unconverged_geocodes) > 0:
-                log("INFO","--IPF--: The following geo_codes did not converge\{}".format(unconverged_geocodes))
+                log("INFO", "--IPF--: The following geo_codes did not converge\n{}".format(unconverged_geocodes))
                 if fit_proc_inst.input_params['ipf_fail_on_nonconvergence']:
                     raise SynthEcoError("--IPF--: There were unconverged geographic areas")
             else:
                 log("INFO", "--IPF--: All Geographic Areas Converged")
 
-            return post_results
+            s_argList = []
+            for g, f_dict in post_results.items():
+                s_argList.append([pums_hier, f_dict, g, fitting_vars, metadata_json, alpha, K])
+
+            with mp.Manager() as manager:
+                sam_dict = manager.dict()
+                arg_list = [tuple([sam_dict] + x) for x in s_argList]
+
+                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                    pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
+                sample_results = dict(sam_dict)
+
+            return sample_results
 
         except Exception as e:
             raise SynthEcoError("{}".format(e))
@@ -129,8 +145,8 @@ class IPFCensusHouseholdFittingProcedure:
 
     @staticmethod
     def _perform_fitting_for_geocode(fitting_results, geo_code, summary_geo_tables, pums_freq,
-                                    fitting_vars, n_houses, max_iterations,
-                                    convergence_rate, rate_tolerance):
+                                     fitting_vars, n_houses, max_iterations,
+                                     convergence_rate, rate_tolerance):
 
         log("INFO", "--IPF--: Starting IPF for {}".format(geo_code))
         IPF = ipfn.ipfn(pums_freq, summary_geo_tables, [[x] for x in fitting_vars],
@@ -159,8 +175,8 @@ class IPFCensusHouseholdFittingProcedure:
             results_rounded = results_rounded[results_rounded['total'] != 0]
 
             log("DEBUG", "--IPF--: GEO_CODE: {} SUM: {} NHOUSES: {}".format(geo_code,
-                                                                   results_rounded['total'].sum(),
-                                                                   n_houses))
+                                                                            results_rounded['total'].sum(),
+                                                                            n_houses))
             '''
             This is necessary because if the random rounding eliminates all of the houses in
             a geographic area, we need to do something different.
@@ -181,7 +197,8 @@ class IPFCensusHouseholdFittingProcedure:
                 while results_rounded['total'].sum() < n_houses:
                     current_sum = results_rounded['total'].sum()
                     if current_sum == previous_sum:
-                        raise SynthEcoError("--IPF--: There was a problem in IPF rounding procedure for {}".format(geo_code))
+                        raise SynthEcoError("--IPF--: There was a problem in IPF rounding" +
+                                            " procedure for {}".format(geo_code))
                     random_hh = rn.randint(0, results_rounded.shape[0]-1)
                     results_rounded.loc[results_rounded.index[random_hh], 'total'] = \
                         results_rounded.loc[results_rounded.index[random_hh], 'total'] + 1
@@ -189,7 +206,8 @@ class IPFCensusHouseholdFittingProcedure:
                 while results_rounded['total'].sum() > n_houses:
                     current_sum = results_rounded['total'].sum()
                     if current_sum == previous_sum:
-                        raise SynthEcoError("--IPF--: There was a problem in IPF rounding procedure for {}".format(geo_code))
+                        raise SynthEcoError("--IPF--: There was a problem in IPF rounding" +
+                                            " procedure for {}".format(geo_code))
                     random_hh = rn.randint(0, results_rounded.shape[0]-1)
                     results_rounded.loc[results_rounded.index[random_hh], 'total'] = \
                         results_rounded.loc[results_rounded.index[random_hh], 'total'] - 1
@@ -198,7 +216,84 @@ class IPFCensusHouseholdFittingProcedure:
 
             # We don't need no stinking zeros
             results_rounded = results_rounded[results_rounded['total'] != 0]
-            log("DEBUG", "--IPF--: FINAL RESULTS: GEO_CODE: {} SUM: {} NHOUSES: {}".format(geo_code,
-                                                                                  results_rounded['total'].sum(),
-                                                                                  n_houses))
-            fitting_results[geo_code] = (results[1],results_rounded)
+            log("DEBUG", "--IPF--: FINAL RESULTS: GEO_CODE: " +
+                         " {} SUM: {} NHOUSES: {}".format(geo_code,
+                                                          results_rounded['total'].sum(),
+                                                          n_houses))
+            fitting_results[geo_code] = (results[1], results_rounded)
+
+    @staticmethod
+    def calculate_ordinal_distance(pums_val, tab_val, r, k):
+        '''
+        calculate_ordinal_distance
+
+        calculates the distance between two variables if the range is ordinal
+        i.e. the range has some progression and is not "categorical", such as it is a size, or an age range
+
+        pums_val: the value of the fitted variable from pums
+        tab_val: the summary table value
+        r:  distance parameter
+        k: fitting constant
+
+        Returns:
+            ordinal distance between the pums_val and tab_val
+        '''
+        return 1-abs((float(pums_val) - float(tab_val))/r)**k
+
+    @staticmethod
+    def calculate_categorical_distance(pums_val, tab_val, alpha):
+        '''
+        Document
+        '''
+        return float(alpha) if float(pums_val) == float(tab_val) else 1.0-alpha
+
+    @staticmethod
+    def _select_households(sample_dict, pums, fit_table, geo_code, fitting_vars,
+                           metadata_json, alpha=0.0, k=0.001):
+        try:
+            log("INFO", "Running select households {}".format(geo_code))
+            mat_array = np.array([1.0 for i in range(0, fit_table.shape[0]*pums.shape[0])])
+            distance_matrix = mat_array.reshape(fit_table.shape[0], pums.shape[0])
+            for var in fitting_vars:
+                pums_ds = metadata_json[var]
+                table_values = fit_table[var]
+                pums_values = pums[var]
+                # r is the difference between the maximum and minimum value of the fitting var
+                if pums_ds['sample_type'] == "ordinal":
+                    r = int(pums_values.max()) - int(pums_values.min())
+                    for i in range(0, distance_matrix.shape[0]):
+                        table_value = table_values[table_values.index[i]]
+                        c_o_d = IPFCensusHouseholdFittingProcedure.calculate_ordinal_distance
+                        distance_tmp = np.array([c_o_d(x, table_value, r, k) for x in list(pums_values)])
+                    distance_matrix[i] = distance_matrix[i] * distance_tmp
+                else:
+                    for i in range(0, distance_matrix.shape[0]):
+                        table_value = table_values[table_values.index[i]]
+                        c_c_d = IPFCensusHouseholdFittingProcedure.calculate_categorical_distance
+                        distance_tmp = np.array([c_c_d(x, table_value, 0.0) for x in list(pums_values)])
+                        distance_matrix[i] = distance_matrix[i] * distance_tmp
+
+            distance_sums = distance_matrix.sum(axis=1)
+            prob_matrix = np.apply_along_axis(lambda x: x/distance_sums, 0, distance_matrix)
+
+            sample_inds = []
+            for i in range(0, fit_table.shape[0]):
+                t_i = list(fit_table.index)[i]
+                n_samples = int(fit_table.loc[t_i, 'total'])
+                prob_row = prob_matrix[i]
+                if (prob_row < 0).any():
+                    log("WARNING", "There are zeros in the probablility row for geocode " +
+                        "{} row {} which could produce erroneous results".format(geo_code, i))
+                if (np.isinf(prob_row)).any():
+                    log("WARNING", "There are infinities in the probablility row for geocode " +
+                        "{} row {}which could produce erroneous results".format(geo_code, i))
+                inds_samp = pd.Series(pums.index)
+                sample_inds = sample_inds + list(inds_samp.sample(n_samples, replace=True, weights=prob_row))
+
+            sample_dict[geo_code] = sample_inds
+        except Exception as e:
+            SynthEcoError("There was a problem in parallel select_housholds:\n{}".format(e))
+
+    @staticmethod
+    def _select_households_helper(args):
+        return IPFCensusHouseholdFittingProcedure._select_households(*args)

@@ -19,6 +19,8 @@ _schema_specs = {
         Optional("ipf_fail_on_nonconvergence", default=False): bool,
         Optional("ipf_convergence_rate", default=1.0e-5): float,
         Optional("ipf_rate_tolerance", default=1.0e-8): float,
+        Optional('ipf_alpha', default=0.0): float,
+        Optional('ipf_k', default=0.0001): float,
         Optional("debug_limit_geo_codes"): int,
         Optional("parallel_num_cores", default=1): int,
     },
@@ -108,7 +110,6 @@ class SynthEcoSchema(Schema):
 
 
 _schema = SynthEcoSchema({})  # initialized with empty schema
-
 
 """
 For Testing
