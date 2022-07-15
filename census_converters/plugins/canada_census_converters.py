@@ -98,7 +98,7 @@ class CanadaCensusGlobalPlugin:
 
         if (cens_conv_inst.input_params.has_keyword('debug_limit_geo_codes') and
            cens_conv_inst.input_params['debug_limit_geo_codes'] < len(geos_of_interest)):
-           geos_of_interest = geos_of_interest[0:cens_conv_inst.input_params['debug_limit_geo_codes']]
+            geos_of_interest = geos_of_interest[0:cens_conv_inst.input_params['debug_limit_geo_codes']]
 
         return {"total_population_by_geo": pop_df,
                 "number_households_by_geo": nh_df,
