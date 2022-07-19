@@ -313,13 +313,14 @@ class TestUSCensusPlugins:
     ):
         output: dict = transform_func(cens_conv_inst)
 
+        assert output.keys() == expected_output.keys()
         for (data, expected_data) in zip(output.values(), expected_output.values()):
             assert type(data) == type(expected_data)
 
             if type(data) == pd.DataFrame:
                 expected_data = expected_data.astype(data.dtypes)
                 assert data.equals(expected_data)
-            elif type(data) == list:
+            else:
                 assert data == expected_data
 
     def test_global_transform(self, cens_conv_inst):
@@ -349,6 +350,7 @@ class TestUSCensusPlugins:
             "total_population_by_geo": expected_pop_df,
             "number_households_by_geo": expected_nh_df,
             "geos_of_interest": expected_geos_of_interest,
+            "census_variable_metadata": cens_conv_inst.metadata_json,
         }
 
         self.transform_scaffold(
