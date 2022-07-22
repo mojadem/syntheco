@@ -13,7 +13,7 @@ from error import SynthEcoError
 from util import random_round_to_integer
 import random as rn
 import multiprocessing as mp
-import time
+import time, sys
 
 
 class IPFCensusHouseholdFittingProcedure:
@@ -95,12 +95,15 @@ class IPFCensusHouseholdFittingProcedure:
                                          max_iterations, convergence_rate, rate_tolerance])
             # Parallel execution
             with mp.Manager() as manager:
-                results_p = manager.dict()
-                arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
+                #results_p = manager.dict()
+                #arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
+                arg_list = [tuple(x) for x in fitting_arg_list]
                 with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                    pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
+                    results_p = pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
 
-                results = dict(results_p)
+                results = {}
+                for x in results_p:
+                    results[x[0]] = (x[1],x[2])
 
             # Post process checking
             unconverged_geocodes = []
@@ -117,39 +120,26 @@ class IPFCensusHouseholdFittingProcedure:
             else:
                 log("INFO", "--IPF--: All Geographic Areas Converged")
             t1s = time.time()
-            #s_argList = []
-
-            #s_dict = [{} for x in range(0,len(s_argList))]
-            #argList = []
-            #for i in range(0,len(s_argList)):
-            #    argList.append(tuple([s_dict[i]]+s_argList[i]))
+            s_argList = []
 
             with mp.Manager() as manager:
-                sam_dict = manager.dict()
-                #pums_heir_ns = manager.NameSpace()
-                #pums_heir_ns.df = pums_heir
                 for g, f_dict in post_results.items():
                     s_argList.append([pums_hier, f_dict, g, fitting_vars, metadata_json, alpha, K])
 
-                arg_list = [tuple([sam_dict] + x) for x in s_argList]
-                #arg_list = [tuple([s_dict[s_argList.index(x)]] + x) for x in s_argList]
+                arg_list = [tuple(x) for x in s_argList]
                 with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                    pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
-                sample_results = dict(sam_dict)
-            #sample_results = s_dict
+                    results_p = pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
+            sample_results = {}
+            for g,x in results_p:
+                sample_results[g] = x
             t2s =  time.time()
-
-
             t1 = time.time()
             num_cores = fit_proc_inst.input_params["parallel_num_cores"]
             new_pums_table_dict = fit_proc_inst.pums_tables.create_from_index(sample_results)
-            #new_pums_table_dict = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results,
-                #                                                                                     num_cores)
             t2 = time.time()
 
-            print(new_pums_table_dict)
-            print("time to sample {}".format(t2s - t1s))
-            print("time to create: {}".format(t2-t1))
+            log("INFO", "time to sample {}".format(t2s - t1s))
+            log("INFO", "time to create: {}".format(t2 - t1))
 
             return sample_results
 
@@ -167,7 +157,7 @@ class IPFCensusHouseholdFittingProcedure:
         return IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode(*args)
 
     @staticmethod
-    def _perform_fitting_for_geocode(fitting_results, geo_code, summary_geo_tables, pums_freq,
+    def _perform_fitting_for_geocode(geo_code, summary_geo_tables, pums_freq,
                                      fitting_vars, n_houses, max_iterations,
                                      convergence_rate, rate_tolerance):
 
@@ -243,7 +233,7 @@ class IPFCensusHouseholdFittingProcedure:
                          " {} SUM: {} NHOUSES: {}".format(geo_code,
                                                           results_rounded['total'].sum(),
                                                           n_houses))
-            fitting_results[geo_code] = (results[1], results_rounded)
+            return (geo_code, results[1], results_rounded)
 
     @staticmethod
     def calculate_ordinal_distance(pums_val, tab_val, r, k):
@@ -271,7 +261,7 @@ class IPFCensusHouseholdFittingProcedure:
         return alpha if pums_val == tab_val else 1.0-alpha
 
     @staticmethod
-    def _select_households(sample_dict, pums, fit_table, geo_code, fitting_vars,
+    def _select_households(pums, fit_table, geo_code, fitting_vars,
                            metadata_json, alpha=0.0, k=0.001):
         try:
             t1 = time.time()
@@ -317,9 +307,10 @@ class IPFCensusHouseholdFittingProcedure:
                 inds_samp = pd.Series(pums.index)
                 sample_inds = sample_inds + list(inds_samp.sample(n_samples, replace=True, weights=prob_row))
 
-            sample_dict[geo_code] = sample_inds
             t12 = time.time()
-            print("For Geocode {}, times are {}, {}".format(geo_code,t2-t1,t12-t11))
+            log("INFO", "For Geocode {}, times are {}, {}".format(geo_code,t2-t1,t12-t11))
+
+            return (geo_code, sample_inds)
         except Exception as e:
             SynthEcoError("There was a problem in parallel select_housholds:\n{}".format(e))
 
