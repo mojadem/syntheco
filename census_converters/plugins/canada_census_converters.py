@@ -30,21 +30,25 @@ class CanadaCensusGlobalPlugin:
         Returns:
             returns the raw data table from the canadian census profile data
         """
-        census_year = cens_conv_inst.input_params.input_params['census_year']
-        low_res_geo = cens_conv_inst.input_params.input_params['census_low_res_geo_unit']
-        high_res_geo = cens_conv_inst.input_params.input_params['census_high_res_geo_unit']
-        profile_data_csv = cens_conv_inst.input_params.input_params['census_input_files']['profile_data_csv']
+        try:
+            census_year = cens_conv_inst.input_params.input_params['census_year']
+            low_res_geo = cens_conv_inst.input_params.input_params['census_low_res_geo_unit']
+            high_res_geo = cens_conv_inst.input_params.input_params['census_high_res_geo_unit']
+            profile_data_csv = cens_conv_inst.input_params.input_params['census_input_files']['profile_data_csv']
 
-        prof_iter = pd.read_csv(profile_data_csv,
-                                iterator=True,
-                                dtype={'GEO_CODE (POR)': str,
-                                       'DIM: Profile of Census Tracts (2247)': str},
-                                chunksize=1000)
-        raw_df = pd.concat([chunk[(chunk['GEO_CODE (POR)'].str.find(str(low_res_geo), 0) == 0)
-                                  & (chunk['GEO_LEVEL'] == high_res_geo)
-                                  & (chunk['CENSUS_YEAR'] == census_year)]
-                            for chunk in prof_iter])
-        return raw_df
+            prof_iter = pd.read_csv(profile_data_csv,
+                                    iterator=True,
+                                    dtype={'GEO_CODE (POR)': str,
+                                           'DIM: Profile of Census Tracts (2247)': str},
+                                    chunksize=1000)
+            raw_df = pd.concat([chunk[(chunk['GEO_CODE (POR)'].str.find(str(low_res_geo), 0) == 0)
+                                      & (chunk['GEO_LEVEL'] == high_res_geo)
+                                      & (chunk['CENSUS_YEAR'] == census_year)]
+                                for chunk in prof_iter])
+            return raw_df
+        except Exception as e:
+            raise SynthEcoError("CanadaCensusGlobalPlugin: read_raw_data_into_pandas\n{}".format(e))
+
 
     @hookimpl
     def transform(cens_conv_inst):
@@ -57,53 +61,56 @@ class CanadaCensusGlobalPlugin:
         Returns:
             An updated dataframe to be set to processed_data_df
         """
-        # total population table
-        raw_df = cens_conv_inst.raw_data_df
-        pop_df = raw_df[(raw_df['DIM: Profile of Census Tracts (2247)'] == "Population, 2016")]
-        pop_df = pop_df.drop(columns=["DIM: Profile of Census Tracts (2247)",
-                                      "Dim: Sex (3): Member ID: [2]: Male",
-                                      "Dim: Sex (3): Member ID: [3]: Female",
-                                      "GNR", "GNR_LF", "ALT_GEO_CODE",
-                                      "Member ID: Profile of Census Tracts (2247)",
-                                      "DATA_QUALITY_FLAG"])
-        pop_df = pop_df.rename(columns={'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total',
-                                        'GEO_CODE (POR)': 'GEO_CODE'})
+        try:
+            # total population table
+            raw_df = cens_conv_inst.raw_data_df
+            pop_df = raw_df[(raw_df['DIM: Profile of Census Tracts (2247)'] == "Population, 2016")]
+            pop_df = pop_df.drop(columns=["DIM: Profile of Census Tracts (2247)",
+                                          "Dim: Sex (3): Member ID: [2]: Male",
+                                          "Dim: Sex (3): Member ID: [3]: Female",
+                                          "GNR", "GNR_LF", "ALT_GEO_CODE",
+                                          "Member ID: Profile of Census Tracts (2247)",
+                                          "DATA_QUALITY_FLAG"])
+            pop_df = pop_df.rename(columns={'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total',
+                                            'GEO_CODE (POR)': 'GEO_CODE'})
 
-        # total number of houshold data
-        nh_df = raw_df[(raw_df['DIM: Profile of Census Tracts (2247)'] == "Total private dwellings")]
-        nh_df = nh_df.drop(columns=["DIM: Profile of Census Tracts (2247)",
-                                    "Dim: Sex (3): Member ID: [2]: Male",
-                                    "Dim: Sex (3): Member ID: [3]: Female",
-                                    "GNR", "GNR_LF", "ALT_GEO_CODE",
-                                    "Member ID: Profile of Census Tracts (2247)",
-                                    "DATA_QUALITY_FLAG"])
-        nh_df = nh_df.rename(columns={'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total',
-                                      'GEO_CODE (POR)': 'GEO_CODE'})
+            # total number of houshold data
+            nh_df = raw_df[(raw_df['DIM: Profile of Census Tracts (2247)'] == "Total private dwellings")]
+            nh_df = nh_df.drop(columns=["DIM: Profile of Census Tracts (2247)",
+                                        "Dim: Sex (3): Member ID: [2]: Male",
+                                        "Dim: Sex (3): Member ID: [3]: Female",
+                                        "GNR", "GNR_LF", "ALT_GEO_CODE",
+                                        "Member ID: Profile of Census Tracts (2247)",
+                                        "DATA_QUALITY_FLAG"])
+            nh_df = nh_df.rename(columns={'Dim: Sex (3): Member ID: [1]: Total - Sex': 'total',
+                                          'GEO_CODE (POR)': 'GEO_CODE'})
 
-        # Fix .. values, for now convert them to zero
-        pop_df['total'] = pd.to_numeric(pop_df['total'], downcast='float', errors='coerce').fillna(0.0)
-        pop_df = pop_df.set_index('GEO_CODE')
-        pop_df.name = "Total Population by High Resolution Geo Unit"
+            # Fix .. values, for now convert them to zero
+            pop_df['total'] = pd.to_numeric(pop_df['total'], downcast='float', errors='coerce').fillna(0.0)
+            pop_df = pop_df.set_index('GEO_CODE')
+            pop_df.name = "Total Population by High Resolution Geo Unit"
 
-        # Fix .. values, for now convert them to zero
-        nh_df['total'] = pd.to_numeric(nh_df['total'], downcast='float', errors='coerce').fillna(0.0)
-        nh_df = nh_df.set_index('GEO_CODE')
-        nh_df.name = "Number of Households by High Resolution Geo Unit"
+            # Fix .. values, for now convert them to zero
+            nh_df['total'] = pd.to_numeric(nh_df['total'], downcast='float', errors='coerce').fillna(0.0)
+            nh_df = nh_df.set_index('GEO_CODE')
+            nh_df.name = "Number of Households by High Resolution Geo Unit"
 
-        # Finally, the geographic units of interest come from the overlap between pop and hh
-        geos_hh_interest = list(nh_df[(nh_df['total'] != 0)].index)
-        geos_pop_interest = list(pop_df[pop_df['total'] != 0].index)
+            # Finally, the geographic units of interest come from the overlap between pop and hh
+            geos_hh_interest = list(nh_df[(nh_df['total'] != 0)].index)
+            geos_pop_interest = list(pop_df[pop_df['total'] != 0].index)
 
-        geos_of_interest = [x for x in geos_hh_interest if x in geos_pop_interest]
+            geos_of_interest = [x for x in geos_hh_interest if x in geos_pop_interest]
 
-        if (cens_conv_inst.input_params.has_keyword('debug_limit_geo_codes') and
-           cens_conv_inst.input_params['debug_limit_geo_codes'] < len(geos_of_interest)):
-            geos_of_interest = geos_of_interest[0:cens_conv_inst.input_params['debug_limit_geo_codes']]
+            if (cens_conv_inst.input_params.has_keyword('debug_limit_geo_codes') and
+               cens_conv_inst.input_params['debug_limit_geo_codes'] < len(geos_of_interest)):
+                geos_of_interest = geos_of_interest[0:cens_conv_inst.input_params['debug_limit_geo_codes']]
 
-        return {"total_population_by_geo": pop_df,
-                "number_households_by_geo": nh_df,
-                "geos_of_interest": geos_of_interest,
-                "census_variable_metadata": cens_conv_inst.metadata_json}
+            return {"total_population_by_geo": pop_df,
+                    "number_households_by_geo": nh_df,
+                    "geos_of_interest": geos_of_interest,
+                    "census_variable_metadata": cens_conv_inst.metadata_json}
+        except Exception as e:
+            raise SynthEco("CanadaCensusGlobalPlugin: transform:\n{}".format(e))
 
 
 class CanadaCensusSummaryPlugin:
@@ -126,26 +133,29 @@ class CanadaCensusSummaryPlugin:
         NOTE: This is duplicating the globals as it has the same data, would
         be good to implement some sort of caching that would not need to do this
         """
-        census_year = cens_conv_inst.input_params.input_params['census_year']
-        low_res_geo = cens_conv_inst.input_params.input_params['census_low_res_geo_unit']
-        high_res_geo = cens_conv_inst.input_params.input_params['census_high_res_geo_unit']
-        profile_data_csv = cens_conv_inst.input_params.input_params['census_input_files']['profile_data_csv']
-        pums_ds = cens_conv_inst.metadata_json
+        try:
+            census_year = cens_conv_inst.input_params.input_params['census_year']
+            low_res_geo = cens_conv_inst.input_params.input_params['census_low_res_geo_unit']
+            high_res_geo = cens_conv_inst.input_params.input_params['census_high_res_geo_unit']
+            profile_data_csv = cens_conv_inst.input_params.input_params['census_input_files']['profile_data_csv']
+            pums_ds = cens_conv_inst.metadata_json
 
-        # this class it is necessary to have the Global Tables initilized
-        if cens_conv_inst.global_tables is None:
-            raise TypeError("CanadaCensusSummaryPlugin requires global_tables to be defined in order to work")
+            # this class it is necessary to have the Global Tables initilized
+            if cens_conv_inst.global_tables is None:
+                raise TypeError("CanadaCensusSummaryPlugin requires global_tables to be defined in order to work")
 
-        prof_iter = pd.read_csv(profile_data_csv,
-                                iterator=True,
-                                dtype={'GEO_CODE (POR)': str,
-                                       'DIM: Profile of Census Tracts (2247)': str},
-                                chunksize=1000)
-        raw_df = pd.concat([chunk[(chunk['GEO_CODE (POR)'].str.find(str(low_res_geo), 0) == 0)
-                                  & (chunk['GEO_LEVEL'] == high_res_geo)
-                                  & (chunk['CENSUS_YEAR'] == census_year)]
-                            for chunk in prof_iter])
-        return raw_df
+            prof_iter = pd.read_csv(profile_data_csv,
+                                    iterator=True,
+                                    dtype={'GEO_CODE (POR)': str,
+                                           'DIM: Profile of Census Tracts (2247)': str},
+                                    chunksize=1000)
+            raw_df = pd.concat([chunk[(chunk['GEO_CODE (POR)'].str.find(str(low_res_geo), 0) == 0)
+                                      & (chunk['GEO_LEVEL'] == high_res_geo)
+                                      & (chunk['CENSUS_YEAR'] == census_year)]
+                                for chunk in prof_iter])
+            return raw_df
+        except Exception as e:
+            raise SynthEcoError("CanadaCensusSummaryPlugin: read_raw_data_into_pandas\n{}".format(e))
 
     @hookimpl
     def transform(cens_conv_inst):
@@ -258,7 +268,7 @@ class CanadaCensusSummaryPlugin:
             '''
             return sum_tables
         except Exception as e:
-            raise SynthEcoError(e)
+            raise SynthEcoError("CanadaCensusSummaryPlugin: transform\n{}".format(e))
 
 
 class CanadaCensusPUMSPlugin:
@@ -277,15 +287,20 @@ class CanadaCensusPUMSPlugin:
         Output: a pandas data frame with raw PUMS data matched to user-specified low res geo units (CMA)
                 called raw_data_df
         """
-        pums_h_csv = cens_conv_inst.input_params.input_params['census_input_files']['pums_h_csv']
-        low_res_geo = cens_conv_inst.input_params.input_params['census_low_res_geo_unit']
-        pums_iter = pd.read_csv(pums_h_csv,
-                                iterator=True,
-                                dtype={'CMA': str},
-                                chunksize=1000)
+        try:
+            pums_h_csv = cens_conv_inst.input_params.input_params['census_input_files']['pums_h_csv']
+            low_res_geo = cens_conv_inst.input_params.input_params['census_low_res_geo_unit']
+            pums_iter = pd.read_csv(pums_h_csv,
+                                    iterator=True,
+                                    dtype={'CMA': str},
+                                    chunksize=1000)
 
-        raw_df = pd.concat([chunk[(chunk['CMA'].str.find(str(low_res_geo), 0) == 0)] for chunk in pums_iter])
-        return raw_df
+
+            raw_df = pd.concat([chunk[(chunk['CMA'].str.find(str(low_res_geo), 0) == 0)] for chunk in pums_iter])
+            return raw_df
+        except Exception as e:
+            raise SynthEcoError("CanadaCensusPUMSPlugin: read_raw_data_into_pandas\n{}".format(e))
+
 
     @hookimpl
     def transform(cens_conv_inst):
@@ -353,11 +368,13 @@ class CanadaCensusPUMSPlugin:
 
             processed_data_df.name = "PUMS Data Categorical Representation"
             pums_freq_df.name = "PUMS Data Frequency Representation"
+            cens_conv_inst.raw_data_df.name = "PUMS Data Raw Data"
 
-            return {"categorical_table": processed_data_df,
+            return {"raw_data": cens_conv_inst.raw_data_df,
+                    "categorical_table": processed_data_df,
                     "frequency_table": pums_freq_df}
         except Exception as e:
-            print("There was an error: {}".format(str(e)))
+            SynthEcoError("CanadaCensusPUMSPlugin:transform\n{}".format(str(e)))
 
     # Special function for dealing with HHSIZE variables
     @staticmethod

@@ -32,7 +32,7 @@ _schema_specs = {
     "canada": {
         "census_input_files": And(dict, {str: os.path.exists}),
         "census_high_res_geo_unit": int,
-        "census_low_res_geo_unit": int,
+        "census_low_res_geo_unit": int
     },
 }
 

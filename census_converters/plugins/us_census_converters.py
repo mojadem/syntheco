@@ -314,5 +314,9 @@ class USCensusPUMSPlugin:
 
         proc_df.name = "PUMS Data Categorical Representation"
         freq_df.name = "PUMS Data Frequency Representation"
+        cens_conv_inst.raw_data_df.name = "PUMS Data Raw Data"
 
-        return {"categorical_table": proc_df, "frequency_table": freq_df}
+        return {"categorical_table": proc_df,
+                "frequency_table": freq_df,
+                "raw_data": cens_conv_inst.raw_data_df
+                }

@@ -13,6 +13,7 @@ from error import SynthEcoError
 from util import random_round_to_integer
 import random as rn
 import multiprocessing as mp
+import time
 
 
 class IPFCensusHouseholdFittingProcedure:
@@ -115,18 +116,40 @@ class IPFCensusHouseholdFittingProcedure:
                     raise SynthEcoError("--IPF--: There were unconverged geographic areas")
             else:
                 log("INFO", "--IPF--: All Geographic Areas Converged")
+            t1s = time.time()
+            #s_argList = []
 
-            s_argList = []
-            for g, f_dict in post_results.items():
-                s_argList.append([pums_hier, f_dict, g, fitting_vars, metadata_json, alpha, K])
+            #s_dict = [{} for x in range(0,len(s_argList))]
+            #argList = []
+            #for i in range(0,len(s_argList)):
+            #    argList.append(tuple([s_dict[i]]+s_argList[i]))
 
             with mp.Manager() as manager:
                 sam_dict = manager.dict()
-                arg_list = [tuple([sam_dict] + x) for x in s_argList]
+                #pums_heir_ns = manager.NameSpace()
+                #pums_heir_ns.df = pums_heir
+                for g, f_dict in post_results.items():
+                    s_argList.append([pums_hier, f_dict, g, fitting_vars, metadata_json, alpha, K])
 
+                arg_list = [tuple([sam_dict] + x) for x in s_argList]
+                #arg_list = [tuple([s_dict[s_argList.index(x)]] + x) for x in s_argList]
                 with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
                     pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
                 sample_results = dict(sam_dict)
+            #sample_results = s_dict
+            t2s =  time.time()
+
+
+            t1 = time.time()
+            num_cores = fit_proc_inst.input_params["parallel_num_cores"]
+            new_pums_table_dict = fit_proc_inst.pums_tables.create_from_index(sample_results)
+            #new_pums_table_dict = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results,
+                #                                                                                     num_cores)
+            t2 = time.time()
+
+            print(new_pums_table_dict)
+            print("time to sample {}".format(t2s - t1s))
+            print("time to create: {}".format(t2-t1))
 
             return sample_results
 
@@ -238,44 +261,48 @@ class IPFCensusHouseholdFittingProcedure:
         Returns:
             ordinal distance between the pums_val and tab_val
         '''
-        return 1-abs((float(pums_val) - float(tab_val))/r)**k
+        return 1-abs((pums_val - tab_val)/r)**k
 
     @staticmethod
     def calculate_categorical_distance(pums_val, tab_val, alpha):
         '''
         Document
         '''
-        return float(alpha) if float(pums_val) == float(tab_val) else 1.0-alpha
+        return alpha if pums_val == tab_val else 1.0-alpha
 
     @staticmethod
     def _select_households(sample_dict, pums, fit_table, geo_code, fitting_vars,
                            metadata_json, alpha=0.0, k=0.001):
         try:
+            t1 = time.time()
             log("INFO", "Running select households {}".format(geo_code))
             mat_array = np.array([1.0 for i in range(0, fit_table.shape[0]*pums.shape[0])])
             distance_matrix = mat_array.reshape(fit_table.shape[0], pums.shape[0])
+            c_o_d = IPFCensusHouseholdFittingProcedure.calculate_ordinal_distance
+            c_c_d = IPFCensusHouseholdFittingProcedure.calculate_categorical_distance
             for var in fitting_vars:
                 pums_ds = metadata_json[var]
                 table_values = fit_table[var]
+                table_values = table_values.astype(float)
                 pums_values = pums[var]
+                pums_values = pums_values.astype(float)
                 # r is the difference between the maximum and minimum value of the fitting var
                 if pums_ds['sample_type'] == "ordinal":
                     r = int(pums_values.max()) - int(pums_values.min())
                     for i in range(0, distance_matrix.shape[0]):
                         table_value = table_values[table_values.index[i]]
-                        c_o_d = IPFCensusHouseholdFittingProcedure.calculate_ordinal_distance
                         distance_tmp = np.array([c_o_d(x, table_value, r, k) for x in list(pums_values)])
                     distance_matrix[i] = distance_matrix[i] * distance_tmp
                 else:
                     for i in range(0, distance_matrix.shape[0]):
                         table_value = table_values[table_values.index[i]]
-                        c_c_d = IPFCensusHouseholdFittingProcedure.calculate_categorical_distance
                         distance_tmp = np.array([c_c_d(x, table_value, 0.0) for x in list(pums_values)])
                         distance_matrix[i] = distance_matrix[i] * distance_tmp
 
             distance_sums = distance_matrix.sum(axis=1)
             prob_matrix = np.apply_along_axis(lambda x: x/distance_sums, 0, distance_matrix)
-
+            t2 = time.time()
+            t11 = time.time()
             sample_inds = []
             for i in range(0, fit_table.shape[0]):
                 t_i = list(fit_table.index)[i]
@@ -291,6 +318,8 @@ class IPFCensusHouseholdFittingProcedure:
                 sample_inds = sample_inds + list(inds_samp.sample(n_samples, replace=True, weights=prob_row))
 
             sample_dict[geo_code] = sample_inds
+            t12 = time.time()
+            print("For Geocode {}, times are {}, {}".format(geo_code,t2-t1,t12-t11))
         except Exception as e:
             SynthEcoError("There was a problem in parallel select_housholds:\n{}".format(e))
 
