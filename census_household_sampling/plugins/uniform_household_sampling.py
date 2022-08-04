@@ -52,23 +52,35 @@ class UniformHouseholdSampling:
             hh_dict = {}
 
             hh_freq = hh_df.groupby('GEO_CODE').size()
+            hh_args = []
             for gc,n in hh_freq.items():
-                hh_dict[gc] = UniformHouseholdSampling.select_house_coordinates(gc,border_gdf,n)
-                #print(type(hh_dict[gc]))
+                gc_border_gdf = border_gdf.loc[border_gdf['CTUID'] == float(gc)]
+                hh_args.append([gc, gc_border_gdf, n])
 
+            with mp.Manager() as manager:
+                hh_dict_p = manager.dict()
+                argList = [tuple([hh_dict_p] + x) for x in hh_args]
+                with manager.Pool(house_samp_inst.input_params["parallel_num_cores"]) as pool:
+                    res = pool.map(UniformHouseholdSampling._select_house_coordinates_helper, argList)
+                #hh_dict[gc] = UniformHouseholdSampling.select_house_coordinates(gc,border_gdf,n)
+                hh_dict = dict(hh_dict_p)
             hh_df['latlon'] = hh_df.apply(lambda x: hh_dict[x['GEO_CODE']].pop(), axis=1)
-
-            #pums_deriv_df['latlon'] = pums_deriv_df.apply(lambda x:
-            #                                              hh_df[hh_df['HH_ID'] == x['HH_ID']]['latlon'].values[0],
-            #                                              axis=1)
-            return {"Household Geographic Assignments":hh_df}                       
+            return {"Household Geographic Assignments":hh_df}
 
         except Exception as e:
             raise SynthEcoError("uniform_household_sampling:sample_households\n{}".format(e))
 
 
     @staticmethod
-    def select_house_coordinates(geo_code, border_gdf, n):
+    def _select_house_coordinates_helper(args):
+        '''
+        _select_households_helper
+        Helper function for parallel execution of the random coordinate selector
+        '''
+        return UniformHouseholdSampling._select_house_coordinates(*args)
+
+    @staticmethod
+    def _select_house_coordinates(hh_dict, geo_code, border_gdf, n):
         geocode_gdf = border_gdf.loc[border_gdf['CTUID'] == float(geo_code)]
         coords = []
         while len(coords) < n:
@@ -80,4 +92,4 @@ class UniformHouseholdSampling:
             #if random_point.within(geocode_gdf['geometry']):
                 coords.append((random_point.x,random_point.y))
 
-        return coords
+        hh_dict[geo_code] = coords
