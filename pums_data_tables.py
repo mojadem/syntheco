@@ -5,8 +5,8 @@ This is a class to hold the standard pums data tables that are needed across
 the synthetic ecosystem generation process.
 """
 
-import pandas as pd
 from error import SynthEcoError
+import pandas as pd
 import multiprocessing as mp
 from itertools import chain
 
@@ -33,8 +33,19 @@ class PUMSDataTables:
                           "------------------------------------------------------"] +
                          [f"{x.name}\n{x}" for x in self.data.values()])
 
-### going to have to move this to something plugin specific since it has diversity.
-    def create_from_index(self,hh_inds_by_geo):
+    def create_new_pums_table_from_household_ids(self,hh_inds_by_geo):
+        """
+        create_new_pums_table_from_household_ids
+
+        This function creates a new pums table from a set of household ids. Essentially
+        it is a gather function.
+
+        Arguments:
+            hh_inds_by_geo: a dictionary of household Id by geographic areas
+
+        Returns:
+            A new dataframe that is a pums like df of the selected households
+        """
         if not "categorical_table" in self.data:
             SynthEcoError("PUMSDataTables: no categorical table in self.data " +
                         "You need to have converted the PUMS tables" +
@@ -66,8 +77,47 @@ class PUMSDataTables:
         total_list = list(chain(*index_dict.values()))
         new_df = pums_hier_org_df.loc[total_list]
         new_df['GEO_CODE'] = geo_list
-        new_df['HH_ID_2'] = overall_hh_ind
+        new_df['HH_ID_2'] = new_df['HH_ID']
+        new_df['HH_ID'] = overall_hh_ind
         # renumber the Households
         new_df = new_df.reset_index().drop(columns=["index"])
 
         return new_df
+
+    def update_pums_table_with_hh_coordinates(self, fitting_result=None, sample_result=None):
+        """
+        update_pums_table_with_hh_coordinates
+
+        This function takes the result of the household sampling and
+        updates the pums_table with the coordnates
+
+        Arguments:
+            hh_dict: the result of the sampling should be a dataframe that has households
+                     ids and lat long coordinates
+
+        Returns:
+            An updated pums table with all of the entries having the appropriate household coordinates
+
+        """
+        from census_household_sampling_result import CensusHouseholdSamplingResult
+        from census_fitting_result import CensusFittingResult
+
+
+        if sample_result is None or not isinstance(sample_result, CensusHouseholdSamplingResult):
+            raise SynthEcoError("pums_data_tables:  update_pums_table_with_hh_coordinates " +
+                                "called with wrong sample_result of {}".format(type(sample_result)))
+
+        if fitting_result is None or not isinstance(fitting_result, CensusFittingResult):
+            raise SynthEcoError("pums_data_tables:  update_pums_table_with_hh_coordinates " +
+                                "called with wrong fitting_result type of {}".format(type(fitting_result)))
+
+        hh_df = sample_result.data["Household Geographic Assignments"]
+        pums_deriv_df = fitting_result.data['Derived PUMS']
+        pums_deriv_df['latitude'] = pums_deriv_df.apply(lambda x:
+                                                        hh_df[hh_df['HH_ID'] == x['HH_ID']]['latlon'].values[0][0],
+                                                        axis=1)
+        pums_deriv_df['longitude'] = pums_deriv_df.apply(lambda x:
+                                                         hh_df[hh_df['HH_ID'] == x['HH_ID']]['latlon'].values[0][1],
+                                                         axis=1)
+
+        return pums_deriv_df

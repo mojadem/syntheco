@@ -6,11 +6,14 @@ This is the main control module for syntheco
 import argparse
 from census_converters.census_converter import CensusConverter
 from census_fitting_procedures.census_fitting_procedure import CensusFittingProcedure
+from census_household_sampling.census_household_sampling import CensusHouseholdSampling
+
 from input import InputParams
 from global_tables import GlobalTables
 from pums_data_tables import PUMSDataTables
 from summary_data_tables import SummaryDataTables
 from census_fitting_result import CensusFittingResult
+from census_household_sampling_result import CensusHouseholdSamplingResult
 from logger import setup_logger, log, data_log
 
 
@@ -79,11 +82,24 @@ def main():
     data_log(f"{pums_heir_tables}")
     data_log(f"{summary_tables}")
 
+    log("INFO", "Performing Census Fitting Procedure")
     census_fitting_procedure = CensusFittingProcedure(ip, global_tables, pums_heir_tables, summary_tables)
     census_fitting_result = CensusFittingResult(converter_=census_fitting_procedure)
 
     data_log(f"{census_fitting_result}")
+    log("INFO", "Sampling Households from fitting results")
+    census_household_sampling_proc = CensusHouseholdSampling(ip, census_fitting_result,
+                                                             pums_heir_tables, global_tables)
+
+    census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
+    data_log(f"{census_sampling_result}")
+
+    log("INFO", "Producing new PUMS Data Set")
+    pums_derived_table = pums_heir_tables.update_pums_table_with_hh_coordinates(census_fitting_result,
+                                                                                census_sampling_result)
 
 
+    pums_derived_table.to_csv("{}.pums_h.csv".format(ip['output_prefix']), index=False)
+    print(pums_derived_table)
 if __name__ == "__main__":
     main()

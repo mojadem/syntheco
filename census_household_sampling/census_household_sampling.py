@@ -16,11 +16,11 @@ from census_household_sampling.hookspec import hookspec, CensusHouseholdSampling
 from global_tables import GlobalTables
 from pums_data_tables import PUMSDataTables
 from input import InputParams
-from census_fitting_results import CensusFittingResult
+from census_fitting_result import CensusFittingResult
 from logger import log, data_log
 from error import SynthEcoError
 
-plugin_map = {'uniform': {"module": "census_converter.plugins.uniform_household_sampling",
+plugin_map = {'uniform': {"module": "census_household_sampling.plugins.uniform_household_sampling",
                           "class": "UniformHouseholdSampling"}
              }
 
@@ -44,7 +44,7 @@ def initialize(sampling_procedure):
         plug_manager = pluggy.PluginManager("census_household_sampling")
         plug_manager.add_hookspecs(CensusHouseholdSamplingSpec)
 
-        if census_converter not in plugin_map.keys():
+        if sampling_procedure not in plugin_map.keys():
             raise SynthEcoError("Trying to initialize a census household sampling"
                                 "that doesn't have a plugin {}".format(sampling_procedure))
 
@@ -63,19 +63,19 @@ def initialize(sampling_procedure):
 
 class CensusHouseholdSampling:
     """
-    CensusHousholdSampling
+    CensushouseholdSampling
 
     Skeleton class for the plugin framework for randomly sampling and placing Households
     within a geographic area
     """
-    def __init__(self, input_params, fiiting_results, pums_data_tables, global_tables):
+    def __init__(self, input_params, fitting_result, pums_data_tables, global_tables):
         """
         Constructor
 
         Arguments:
             - input_params (InputParams): the input paramters for Syntheco
-            - fitting_results (CensusFittingResults class): results from a census fitting plugin
-            - pums_census_conv (PUMSDataTables class): results from the census converter
+            - fitting_result (CensusFittingresult class): result from a census fitting plugin
+            - pums_census_conv (PUMSDataTables class): result from the census converter
             - global_tables (GlobalTables class):
 
         Returns:
@@ -83,20 +83,19 @@ class CensusHouseholdSampling:
         """
 
         ### Check argument types
-        if input_params is None of not isinstance(input_params, InputParams):
+        if input_params is None or not isinstance(input_params, InputParams):
             raise SynthEcoError("Census Household Sampling Plugin Input Params is either empty or of wrong type")
         if global_tables is None or not isinstance(global_tables, GlobalTables):
             raise SynthEcoError("Census Household Sampling Plugin Global Tables is either empty or of wrong type")
-        if fitting_results is None or not isinstance(fitting_results, CensusFittingResult):
-            raise SynthEcoError("Census Household Sampling Plugin Fitting Results is either empty or of wrong type")
-        if pums_data_tables is None or not isinstance(pums_data_tables, PUMSDataTables):
-            raise SynthEcoError("Census Household Sampling Plugin Fitting Results is either empty or of wrong type")
-
+        if fitting_result is None or not isinstance(fitting_result, CensusFittingResult):
+            raise SynthEcoError("Census Household Sampling Plugin Fitting result is either empty or of wrong type")
 
         self.input_params = input_params
+        plug_manager = initialize(self.input_params['census_household_sampling_procedure'])
+
         self.global_tables = global_tables
-        self.fitting_results = fitting_results
-        self.pums_data_tables = pums_data_tables
+        self.fitting_result = fitting_result
+        self.hook = plug_manager.hook
         self.processed_data_df = pd.DataFrame()
 
     def sample_households(self):
@@ -105,14 +104,14 @@ class CensusHouseholdSampling:
 
         Stub function that wraps to the plugin specific implementation
         """
-        return self.hook.sample_housholds(house_samp_inst=self)[0]
+        return self.hook.sample_households(house_samp_inst=self)[0]
 
     def perform_household_sampling(self):
         """
         perform_household_sampling
 
         This method actually performs the sampling procedure and return
-        the results
+        the result
 
         Returns:
             A dataframe of the sampled households

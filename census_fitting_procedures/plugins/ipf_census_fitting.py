@@ -134,14 +134,16 @@ class IPFCensusHouseholdFittingProcedure:
                 sample_results[g] = x
             t2s =  time.time()
             t1 = time.time()
+            # TODO: Move to Main
             num_cores = fit_proc_inst.input_params["parallel_num_cores"]
-            new_pums_table_dict = fit_proc_inst.pums_tables.create_from_index(sample_results)
+            new_pums_table_df = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results)
             t2 = time.time()
 
             log("INFO", "time to sample {}".format(t2s - t1s))
             log("INFO", "time to create: {}".format(t2 - t1))
 
-            return sample_results
+            return {"Sample Results": sample_results,
+                    "Derived PUMS": new_pums_table_df}
 
         except Exception as e:
             raise SynthEcoError("{}".format(e))

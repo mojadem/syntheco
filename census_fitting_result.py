@@ -1,7 +1,7 @@
 """
 census_fitting_result
 
-This class is for the results of a census fitting procesure
+This class is for the results of a census fitting procedure
 """
 
 
