@@ -65,6 +65,9 @@ class UniformHouseholdSampling:
                 #hh_dict[gc] = UniformHouseholdSampling.select_house_coordinates(gc,border_gdf,n)
                 hh_dict = dict(hh_dict_p)
             hh_df['latlon'] = hh_df.apply(lambda x: hh_dict[x['GEO_CODE']].pop(), axis=1)
+            hh_df['longitude'] = hh_df.apply(lambda x: x['latlon'][0], axis=1)
+            hh_df['latitude'] = hh_df.apply(lambda x: x['latlon'][1], axis=1)
+            hh_df = hh_df.drop(columns=['latlon'])
             return {"Household Geographic Assignments":hh_df}
 
         except Exception as e:

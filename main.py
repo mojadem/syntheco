@@ -94,12 +94,12 @@ def main():
     census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
     data_log(f"{census_sampling_result}")
 
-    log("INFO", "Producing new PUMS Data Set")
-    pums_derived_table = pums_heir_tables.update_pums_table_with_hh_coordinates(census_fitting_result,
-                                                                                census_sampling_result)
+    log("INFO", "outputting csvs")
+    #pums_derived_table = pums_heir_tables.update_pums_table_with_hh_coordinates(census_fitting_result,
+    #                                                                            census_sampling_result)
 
-
-    pums_derived_table.to_csv("{}.pums_h.csv".format(ip['output_prefix']), index=False)
-    print(pums_derived_table)
+    census_sampling_result.data['Household Geographic Assignments'].to_csv("{}.households.csv".format(ip['output_prefix']), index=False)
+    census_fitting_result.data['Derived PUMS'].to_csv("{}.pums_h.csv".format(ip['output_prefix']), index=False)
+    #print(pums_derived_table)
 if __name__ == "__main__":
     main()
