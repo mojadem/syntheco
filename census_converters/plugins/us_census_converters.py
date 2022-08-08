@@ -18,7 +18,21 @@ from logger import log
 
 
 class APIManager:
+    """
+    APIManager class
+
+    This singleton class interfaces with the US Census API.
+    """
+
     def __init__(self):
+        """
+        Constructor
+
+        Sets up the connection to the US Census API.
+
+        Returns:
+            An instance of the APIManager
+        """
         session = requests_cache.CachedSession(
             "api-response-cache",
             backend="filesystem",
@@ -33,6 +47,18 @@ class APIManager:
         self.base_url = base_url
 
     def api_call(self, url="", params=None):
+        """
+        api_call
+
+        Handles the request to the US Census API.
+
+        Arguments:
+            - url (str): the url to request; appended onto the base_url
+            - params (dict): the parameters to pass into the request
+
+        Returns:
+            The response data in json format
+        """
         start = time.time()
         log("DEBUG", f"API call in progress...")
 
@@ -66,10 +92,17 @@ api_manager = APIManager()
 def _format_df(data, ip=None, api_vars=None, formulate_fips=True):
     """
     _format_df
+
     Helper function that will convert the json data received from the Census API
     to a pandas dataframe with columns set appropriately. This will formulate
     fips codes from the present geography columns, setting it as the index, as
     well as set the remaining columns to the API variables.
+
+    Arguments:
+        - data (List[str]): the data to format, in json format
+        - ip (InputParams): the input parameters of the census converter instance
+        - api_vars (List[str]): the list of API variables retrieved from the Census API
+        - formulate_fips (bool): if the function should formulate the FIPS code as the index
 
     returns:
         the formatted dataframe
@@ -101,6 +134,7 @@ class USCensusGlobalPlugin:
     def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
         read_raw_data_into_pandas
+
         Retrieves relevant data from the Census API
 
         Returns:
@@ -130,6 +164,7 @@ class USCensusGlobalPlugin:
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
+
         Formats the raw data into global tables
 
         Returns:
@@ -171,7 +206,7 @@ class USCensusGlobalPlugin:
             "total_population_by_geo": pop_df,
             "number_households_by_geo": nh_df,
             "geos_of_interest": geos_of_interest,
-            "census_variable_metadata": cens_conv_inst.metadata_json
+            "census_variable_metadata": cens_conv_inst.metadata_json,
         }
 
 
@@ -187,6 +222,7 @@ class USCensusSummaryPlugin:
     def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
         _read_raw_data_into_pandas
+
         Retrieves relevant data from the Census API
 
         Returns:
@@ -220,6 +256,7 @@ class USCensusSummaryPlugin:
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
+
         Formats the raw data into processed summary count tables
 
         Returns:
@@ -275,6 +312,7 @@ class USCensusPUMSPlugin:
     def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
         _read_raw_data_into_pandas
+
         Retrieves relevant data from the Census API
 
         Returns:
@@ -299,6 +337,7 @@ class USCensusPUMSPlugin:
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
+
         Formats the raw data into processed PUMS tables
 
         Returns:

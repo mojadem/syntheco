@@ -48,6 +48,7 @@ class SynthEcoSchema(Schema):
     def validate(self, data: dict):
         """
         validate
+
         This will validate the SynthEco input file according to the schema
         defined above. First, the common schema will be validated. Then,
         the census converter will be determined from the input and it's
@@ -78,6 +79,7 @@ class SynthEcoSchema(Schema):
     def _validate_common_schema(self, data: dict):
         """
         _validate_common_schema
+
         A helper function for the main validate method which will validate the
         common schema defined by the _schema_specs dictionary.
 
@@ -89,6 +91,7 @@ class SynthEcoSchema(Schema):
     def _validate_us_schema(self, data: dict):
         """
         _validate_us_schema
+
         A helper function for the main validate method which will validate the
         US schema defined by the _schema_specs dictionary.
 
@@ -100,6 +103,7 @@ class SynthEcoSchema(Schema):
     def _validate_canada_schema(self, data: dict):
         """
         _validate_canada_schema
+
         A helper function for the main validate method which will validate the
         Canada schema defined by the _schema_specs dictionary.
 
