@@ -320,7 +320,7 @@ class USCensusPUMSPlugin:
         """
         ip = cens_conv_inst.input_params
 
-        api_vars = ip["census_fitting_vars"]
+        api_vars = ["SERIALNO"] + ip["census_fitting_vars"]
 
         url = "/{}/acs/acs5/pums".format(ip["census_year"])
         params = {
@@ -344,7 +344,11 @@ class USCensusPUMSPlugin:
             an updated dataframe to be set to processed_data_df
         """
         pums_vars = cens_conv_inst.input_params["census_fitting_vars"]
-        proc_df = cens_conv_inst.raw_data_df.astype(np.int64)
+        cens_conv_inst.raw_data_df = cens_conv_inst.raw_data_df.rename(
+            columns={"SERIALNO": "HH_ID"}
+        )
+        proc_df = cens_conv_inst.raw_data_df.copy()
+        proc_df[pums_vars] = proc_df[pums_vars].astype(np.int64)
 
         for var in pums_vars:
             new_col_name = f"{var}_m"
@@ -379,7 +383,8 @@ class USCensusPUMSPlugin:
         freq_df.name = "PUMS Data Frequency Representation"
         cens_conv_inst.raw_data_df.name = "PUMS Data Raw Data"
 
-        return {"categorical_table": proc_df,
-                "frequency_table": freq_df,
-                "raw_data": cens_conv_inst.raw_data_df
-                }
+        return {
+            "categorical_table": proc_df,
+            "frequency_table": freq_df,
+            "raw_data": cens_conv_inst.raw_data_df,
+        }

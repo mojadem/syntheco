@@ -273,19 +273,16 @@ class TestUSCensusPlugins:
     def test_pums_read(self, cens_conv_inst):
         api_call_params = {
             "url": "/2020/acs/acs5/pums",
-            "params": {"get": "BDSP", "for": "state:10", "key": "key"},
+            "params": {"get": "SERIALNO,BDSP", "for": "state:10", "key": "key"},
         }
         api_call_return_value = [
-            ["BDSP", "state"],
-            ["-1", "10"],
-            ["4", "10"],
-            ["3", "10"],
-            ["3", "10"],
-            ["2", "10"],
-            ["1", "10"],
-            ["-1", "10"],
-            ["3", "10"],
-            ["4", "10"],
+            ["SERIALNO", "BDSP", "state"],
+            ["2019HU0234188", "0", "10"],
+            ["2019HU0235156", "1", "10"],
+            ["2019HU0235295", "2", "10"],
+            ["2019HU0235857", "3", "10"],
+            ["2019HU0236850", "4", "10"],
+            ["2019HU0237117", "5", "10"],
         ]
         api_call_meta = FunctionCallMetadata(api_call_params, api_call_return_value)
 
@@ -295,8 +292,16 @@ class TestUSCensusPlugins:
         }
         format_df_return_value = pd.DataFrame(
             {
-                "BDSP": ["-1", "4", "3", "3", "2", "1", "-1", "3", "4"],
-                "state": ["10" for _ in range(9)],
+                "SERIALNO": [
+                    "2019HU0234188",
+                    "2019HU0235156",
+                    "2019HU0235295",
+                    "2019HU0235857",
+                    "2019HU0236850",
+                    "2019HU0237117",
+                ],
+                "BDSP": ["0", "1", "2", "3", "4", "5"],
+                "state": ["10", "10", "10", "10", "10", "10"],
             }
         )
         format_df_meta = FunctionCallMetadata(format_df_params, format_df_return_value)
@@ -315,6 +320,8 @@ class TestUSCensusPlugins:
 
         assert output.keys() == expected_output.keys()
         for (data, expected_data) in zip(output.values(), expected_output.values()):
+            print(data)
+            print(expected_data)
             assert type(data) == type(expected_data)
 
             if type(data) == pd.DataFrame:
@@ -408,28 +415,45 @@ class TestUSCensusPlugins:
     def test_pums_transform(self, cens_conv_inst):
         cens_conv_inst.raw_data_df = pd.DataFrame(
             {
-                "BDSP": ["-1", "4", "3", "3", "2", "1", "-1", "3", "7"],
-                "state": ["10" for _ in range(9)],
+                "HH_ID": [
+                    "2019HU0234188",
+                    "2019HU0235156",
+                    "2019HU0235295",
+                    "2019HU0235857",
+                    "2019HU0236850",
+                    "2019HU0237117",
+                ],
+                "BDSP": ["0", "1", "2", "3", "4", "5"],
+                "state": ["10", "10", "10", "10", "10", "10"],
             }
         )
 
         expected_cat_df = pd.DataFrame(
             {
-                "BDSP_V": ["-1", "4", "3", "3", "2", "1", "-1", "3", "7"],
-                "state": ["10" for _ in range(9)],
-                "BDSP": ["1", "5", "4", "4", "3", "2", "1", "4", "6"],
+                "HH_ID": [
+                    "2019HU0234188",
+                    "2019HU0235156",
+                    "2019HU0235295",
+                    "2019HU0235857",
+                    "2019HU0236850",
+                    "2019HU0237117",
+                ],
+                "BDSP_V": ["0", "1", "2", "3", "4", "5"],
+                "state": ["10", "10", "10", "10", "10", "10"],
+                "BDSP": ["1", "2", "3", "4", "5", "6"],
             }
         )
         expected_freq_df = pd.DataFrame(
             {
                 "BDSP": ["1", "2", "3", "4", "5", "6"],
-                "total": ["2", "1", "1", "3", "1", "1"],
+                "total": ["1", "1", "1", "1", "1", "1"],
             }
         )
 
         expected_output = {
             "categorical_table": expected_cat_df,
             "frequency_table": expected_freq_df,
+            "raw_data": cens_conv_inst.raw_data_df,
         }
 
         self.transform_scaffold(

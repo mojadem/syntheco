@@ -24,6 +24,7 @@ class TestCanadaInput:
             "output_log_file": "canada.out.txt",
             "output_data_log_file": "canada_data_out.txt",
             "census_fitting_procedure": "ipf",
+            "census_household_sampling_procedure": "uniform",
             "debug_limit_geo_codes": 10,
             "parallel_num_cores": 4,
         }
@@ -55,6 +56,7 @@ class TestUSInput:
             "output_log_file": "us.out.txt",
             "output_data_log_file": "us_data_out.txt",
             "census_fitting_procedure": "ipf",
+            "census_household_sampling_procedure": "uniform",
             "debug_limit_geo_codes": 10,
             "parallel_num_cores": 4,
             "api_key": "key",
