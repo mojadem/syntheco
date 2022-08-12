@@ -5,7 +5,7 @@ A module to house the input schema for the yaml input files
 """
 
 import os
-from schema import Schema, And, Or, Optional, SchemaError
+from schema import Schema, And, Or, Optional
 
 _schema_specs = {
     "common": {
@@ -21,8 +21,8 @@ _schema_specs = {
         Optional("ipf_fail_on_nonconvergence", default=False): bool,
         Optional("ipf_convergence_rate", default=1.0e-5): float,
         Optional("ipf_rate_tolerance", default=1.0e-8): float,
-        Optional('ipf_alpha', default=0.0): float,
-        Optional('ipf_k', default=0.0001): float,
+        Optional("ipf_alpha", default=0.0): float,
+        Optional("ipf_k", default=0.0001): float,
         Optional("debug_limit_geo_codes"): int,
         Optional("parallel_num_cores", default=1): int,
     },
@@ -50,6 +50,7 @@ class SynthEcoSchema(Schema):
     def validate(self, data: dict):
         """
         validate
+
         This will validate the SynthEco input file according to the schema
         defined above. First, the common schema will be validated. Then,
         the census converter will be determined from the input and it's
@@ -80,6 +81,7 @@ class SynthEcoSchema(Schema):
     def _validate_common_schema(self, data: dict):
         """
         _validate_common_schema
+
         A helper function for the main validate method which will validate the
         common schema defined by the _schema_specs dictionary.
 
@@ -91,6 +93,7 @@ class SynthEcoSchema(Schema):
     def _validate_us_schema(self, data: dict):
         """
         _validate_us_schema
+
         A helper function for the main validate method which will validate the
         US schema defined by the _schema_specs dictionary.
 
@@ -102,6 +105,7 @@ class SynthEcoSchema(Schema):
     def _validate_canada_schema(self, data: dict):
         """
         _validate_canada_schema
+
         A helper function for the main validate method which will validate the
         Canada schema defined by the _schema_specs dictionary.
 
@@ -112,31 +116,3 @@ class SynthEcoSchema(Schema):
 
 
 _schema = SynthEcoSchema({})  # initialized with empty schema
-
-"""
-For Testing
-"""
-if __name__ == "__main__":
-    test_dict = {
-        "census_year": 2016,
-        "census_converter": "canada",
-        "census_high_res_geo_unit": 1,
-        "census_low_res_geo_unit": 1,
-        "census_fitting_vars": ["AGEGRP", "HDGREE", "HHSIZE", "TOTINC"],
-        "census_input_files": {
-            "profile_data_csv": "/home/mojadem/PHDL/SynthEco/data/98-401-X2016043_English_CSV_data.csv",
-            "pums_h_csv": "/home/mojadem/PHDL/SynthEco/data/pumf-98M0002-E-2016-hierarchical_F1.csv",
-        },
-        "output_log_file": "canada.out.txt",
-        "output_data_log_file": "canada_data_out.txt",
-        "census_fitting_procedure": "ipf",
-        "debug_limit_geo_codes": 10,
-        "parallel_num_cores": 4,
-        "useless_key": 1,
-    }
-    try:
-        data = _schema.validate(test_dict)
-        print(data)
-    except SchemaError as e:
-        print("Your Input does not conform to the schema")
-        print(f"Error: {e}")
