@@ -20,6 +20,7 @@ class TestCanadaInput:
             "census_input_files": {
                 "profile_data_csv": tmp_path,
                 "pums_h_csv": tmp_path,
+                "border_gml": tmp_path,
             },
             "output_log_file": "canada.out.txt",
             "output_data_log_file": "canada_data_out.txt",
@@ -46,13 +47,16 @@ class TestCanadaInput:
 
 class TestUSInput:
     @pytest.fixture
-    def us_input(self):
+    def us_input(self, tmp_path):
         return {
             "census_year": 2020,
             "census_converter": "us",
             "census_high_res_geo_unit": "tract",
             "census_low_res_geo_unit": "state:10",
             "census_fitting_vars": ["AGEP", "SCHL", "MAR", "HINCP"],
+            "census_input_files": {
+                "border_gml": tmp_path,
+            },
             "output_log_file": "us.out.txt",
             "output_data_log_file": "us_data_out.txt",
             "census_fitting_procedure": "ipf",

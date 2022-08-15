@@ -71,11 +71,11 @@ class TestFormatDF:
 
         expected_df = pd.DataFrame(
             {
-                "FIPS": ["10003", "10005", "10001"],
+                "GEO_CODE": ["10003", "10005", "10001"],
                 "P1_001N": ["570719", "237378", "181851"],
                 "H1_001N": ["233747", "142280", "72708"],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
 
         assert df.equals(expected_df)
 
@@ -92,11 +92,11 @@ class TestFormatDF:
 
         expected_df = pd.DataFrame(
             {
-                "FIPS": ["10003000200", "10005000300", "10001000400"],
+                "GEO_CODE": ["10003000200", "10005000300", "10001000400"],
                 "P1_001N": ["570719", "237378", "181851"],
                 "H1_001N": ["233747", "142280", "72708"],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
 
         assert df.equals(expected_df)
 
@@ -197,11 +197,11 @@ class TestUSCensusPlugins:
         }
         format_df_return_value = pd.DataFrame(
             {
-                "FIPS": ["10003", "10005", "10001"],
+                "GEO_CODE": ["10003", "10005", "10001"],
                 "P1_001N": ["570719", "237378", "181851"],
                 "H1_001N": ["233747", "142280", "72708"],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
         format_df_meta = FunctionCallMetadata(format_df_params, format_df_return_value)
 
         self.read_scaffold(
@@ -252,7 +252,7 @@ class TestUSCensusPlugins:
         }
         format_df_return_value = pd.DataFrame(
             {
-                "FIPS": ["10003", "10005", "10001"],
+                "GEO_CODE": ["10003", "10005", "10001"],
                 "DP04_0039E": ["4021", "1109", "699"],
                 "DP04_0040E": ["21129", "3736", "4101"],
                 "DP04_0041E": ["46047", "26295", "13745"],
@@ -260,7 +260,7 @@ class TestUSCensusPlugins:
                 "DP04_0043E": ["54050", "28034", "14367"],
                 "DP04_0044E": ["10253", "7804", "3441"],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
         format_df_meta = FunctionCallMetadata(format_df_params, format_df_return_value)
 
         self.read_scaffold(
@@ -288,7 +288,7 @@ class TestUSCensusPlugins:
 
         format_df_params = {
             "data": api_call_meta.return_value,
-            "formulate_fips": False,
+            "formulate_geo_code": False,
         }
         format_df_return_value = pd.DataFrame(
             {
@@ -333,24 +333,24 @@ class TestUSCensusPlugins:
     def test_global_transform(self, cens_conv_inst):
         cens_conv_inst.raw_data_df = pd.DataFrame(
             {
-                "FIPS": ["10003", "10005", "10001"],
+                "GEO_CODE": ["10003", "10005", "10001"],
                 "P1_001N": ["570719", "237378", "181851"],
                 "H1_001N": ["233747", "142280", "72708"],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
 
         expected_pop_df = pd.DataFrame(
             {
-                "FIPS": ["10003", "10005", "10001"],
+                "GEO_CODE": ["10003", "10005", "10001"],
                 "total": [570719.0, 237378.0, 181851.0],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
         expected_nh_df = pd.DataFrame(
             {
-                "FIPS": ["10003", "10005", "10001"],
+                "GEO_CODE": ["10003", "10005", "10001"],
                 "total": [233747.0, 142280.0, 72708.0],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
         expected_geos_of_interest = ["10003", "10005", "10001"]
 
         expected_output = {
@@ -367,7 +367,7 @@ class TestUSCensusPlugins:
     def test_summary_transform(self, cens_conv_inst):
         cens_conv_inst.raw_data_df = pd.DataFrame(
             {
-                "FIPS": ["10003"],
+                "GEO_CODE": ["10003"],
                 "DP04_0039E": ["4021"],
                 "DP04_0040E": ["21129"],
                 "DP04_0041E": ["46047"],
@@ -375,12 +375,12 @@ class TestUSCensusPlugins:
                 "DP04_0043E": ["54050"],
                 "DP04_0044E": ["10253"],
             }
-        ).set_index("FIPS")
+        ).set_index("GEO_CODE")
 
         expected_output = {
             "BDSP": pd.DataFrame(
                 {
-                    "FIPS": [
+                    "GEO_CODE": [
                         "10003",
                         "10003",
                         "10003",
@@ -405,7 +405,7 @@ class TestUSCensusPlugins:
                         10253.0,
                     ],
                 }
-            ).set_index("FIPS")
+            ).set_index("GEO_CODE")
         }
 
         self.transform_scaffold(

@@ -11,6 +11,7 @@ _schema_specs = {
     "common": {
         "census_year": int,
         "census_converter": And(str, Or("us", "canada")),
+        "census_input_files": And(dict, {str: os.path.exists}),
         "census_fitting_vars": [str],
         "census_fitting_procedure": str,
         "census_household_sampling_procedure": str,
@@ -31,11 +32,7 @@ _schema_specs = {
         "census_high_res_geo_unit": str,
         "census_low_res_geo_unit": str,
     },
-    "canada": {
-        "census_input_files": And(dict, {str: os.path.exists}),
-        "census_high_res_geo_unit": int,
-        "census_low_res_geo_unit": int
-    },
+    "canada": {"census_high_res_geo_unit": int, "census_low_res_geo_unit": int},
 }
 
 

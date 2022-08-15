@@ -89,35 +89,37 @@ class APIManager:
 api_manager = APIManager()
 
 
-def _format_df(data, ip=None, api_vars=None, formulate_fips=True):
+def _format_df(data, ip=None, api_vars=None, formulate_geo_code=True):
     """
     _format_df
 
     Helper function that will convert the json data received from the Census API
     to a pandas dataframe with columns set appropriately. This will formulate
-    fips codes from the present geography columns, setting it as the index, as
+    FIPS codes from the present geography columns, setting it as the index, as
     well as set the remaining columns to the API variables.
+
+    Note that FIPS is standardized to GEO_CODE.
 
     Arguments:
         - data (List[str]): the data to format, in json format
         - ip (InputParams): the input parameters of the census converter instance
         - api_vars (List[str]): the list of API variables retrieved from the Census API
-        - formulate_fips (bool): if the function should formulate the FIPS code as the index
+        - formulate_geo_code (bool): if the function should formulate the GEO_CODE as the index
 
     returns:
         the formatted dataframe
     """
     raw_df = pd.DataFrame(data[1:], columns=data[0])
 
-    if not formulate_fips:  # pums converter will not formulate fips
+    if not formulate_geo_code:  # PUMS converter does not require GEO_CODE
         return raw_df
 
-    raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
+    raw_df["GEO_CODE"] = raw_df["state"] + raw_df["county"]
     if ip["census_high_res_geo_unit"] == "tract":
-        raw_df["FIPS"] += raw_df["tract"]
+        raw_df["GEO_CODE"] += raw_df["tract"]
 
-    raw_df = raw_df[["FIPS"] + api_vars]
-    raw_df = raw_df.set_index("FIPS")
+    raw_df = raw_df[["GEO_CODE"] + api_vars]
+    raw_df = raw_df.set_index("GEO_CODE")
 
     return raw_df
 
@@ -278,18 +280,18 @@ class USCensusSummaryPlugin:
                 var_df[i] = var_df[prof_vars].sum(axis=1)
 
             var_df = var_df.drop(columns=var_ds["profile_vars"]).stack().reset_index()
-            var_df.columns = ["FIPS", var, "total"]
+            var_df.columns = ["GEO_CODE", var, "total"]
 
             # handle cases where total is 0 for all indeces in common_var_map
-            sum_by_geo = var_df.groupby("FIPS").sum()
+            sum_by_geo = var_df.groupby("GEO_CODE").sum()
             var_df["total"] = var_df.apply(
                 lambda x: 1.0  # right now just converts them to 1.0
-                if sum_by_geo.loc[x["FIPS"]]["total"] == 0
+                if sum_by_geo.loc[x["GEO_CODE"]]["total"] == 0
                 else x["total"],
                 axis=1,
             )
 
-            var_df = var_df.set_index("FIPS")
+            var_df = var_df.set_index("GEO_CODE")
 
             var_df["total"] = var_df["total"].astype(np.float64)
 
@@ -330,7 +332,7 @@ class USCensusPUMSPlugin:
         }
 
         data = api_manager.api_call(url, params)
-        raw_df = _format_df(data, formulate_fips=False)
+        raw_df = _format_df(data, formulate_geo_code=False)
         return raw_df
 
     @hookimpl
