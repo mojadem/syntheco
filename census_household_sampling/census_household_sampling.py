@@ -21,10 +21,10 @@ from logger import log, data_log
 from error import SynthEcoError
 
 plugin_map = {'uniform': {"module": "census_household_sampling.plugins.uniform_household_sampling",
-                          "class": "UniformHouseholdSampling"}
-             }
+                          "class": "UniformHouseholdSampling"}}
 
-### Need to get the metadata in here, maybe I should make that a separate data structure???
+# Need to get the metadata in here, maybe I should make that a separate data structure???
+
 
 def initialize(sampling_procedure):
     """
@@ -60,7 +60,6 @@ def initialize(sampling_procedure):
         raise SynthEcoError("Census Household Sampling Plugin Failed to Initialize: {}".format(e))
 
 
-
 class CensusHouseholdSampling:
     """
     CensushouseholdSampling
@@ -82,7 +81,7 @@ class CensusHouseholdSampling:
             An instant of CensusHouseholdSampling
         """
 
-        ### Check argument types
+        # Check argument types
         if input_params is None or not isinstance(input_params, InputParams):
             raise SynthEcoError("Census Household Sampling Plugin Input Params is either empty or of wrong type")
         if global_tables is None or not isinstance(global_tables, GlobalTables):

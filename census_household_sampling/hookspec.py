@@ -5,9 +5,9 @@ This module holds the specification for the plugins
 and defines which members need to be implemented
 """
 
-
 import pluggy
 from census_household_sampling import hookspec
+
 
 class CensusHouseholdSamplingSpec:
     """

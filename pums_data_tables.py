@@ -10,6 +10,7 @@ import pandas as pd
 import multiprocessing as mp
 from itertools import chain
 
+
 class PUMSDataTables:
     """
     PUMSDataTables class
@@ -33,7 +34,7 @@ class PUMSDataTables:
                           "------------------------------------------------------"] +
                          [f"{x.name}\n{x}" for x in self.data.values()])
 
-    def create_new_pums_table_from_household_ids(self,hh_inds_by_geo):
+    def create_new_pums_table_from_household_ids(self, hh_inds_by_geo):
         """
         create_new_pums_table_from_household_ids
 
@@ -46,15 +47,15 @@ class PUMSDataTables:
         Returns:
             A new dataframe that is a pums like df of the selected households
         """
-        if not "categorical_table" in self.data:
+        if "categorical_table" not in self.data:
             SynthEcoError("PUMSDataTables: no categorical table in self.data " +
-                        "You need to have converted the PUMS tables" +
-                        "before running create_new_pums_table_from_household_ids")
+                          "You need to have converted the PUMS tables" +
+                          "before running create_new_pums_table_from_household_ids")
 
-        if not "raw_data" in self.data:
+        if "raw_data" not in self.data:
             SynthEcoError("PUMSDataTables: no raw data in self.data " +
-                        "You need to have converted the PUMS tables" +
-                        "before running create_new_pums_table_from_household_ids")
+                          "You need to have converted the PUMS tables" +
+                          "before running create_new_pums_table_from_household_ids")
 
         pums_hier_org_df = self.data['raw_data']
         pums_hier_proc_df = self.data['categorical_table']
@@ -63,16 +64,16 @@ class PUMSDataTables:
         geo_list = []
         overall_hh_ind = []
         hh_counter = 1
-        for g,hh_inds in hh_inds_by_geo.items():
+        for g, hh_inds in hh_inds_by_geo.items():
             ind_list = []
             for i in hh_inds:
                 hh_id = pums_hier_proc_df.loc[i]['HH_ID']
-                hh_list =  pums_hier_org_df.index[pums_hier_org_df['HH_ID'] == hh_id].tolist()
+                hh_list = pums_hier_org_df.index[pums_hier_org_df['HH_ID'] == hh_id].tolist()
                 ind_list += hh_list
-                overall_hh_ind += [hh_counter for x in range(0,len(hh_list))]
+                overall_hh_ind += [hh_counter for x in range(0, len(hh_list))]
                 hh_counter += 1
             index_dict[g] = ind_list
-            geo_list += [g for x in range(0,len(ind_list))]
+            geo_list += [g for x in range(0, len(ind_list))]
 
         total_list = list(chain(*index_dict.values()))
         new_df = pums_hier_org_df.loc[total_list]
@@ -101,7 +102,6 @@ class PUMSDataTables:
         """
         from census_household_sampling_result import CensusHouseholdSamplingResult
         from census_fitting_result import CensusFittingResult
-
 
         if sample_result is None or not isinstance(sample_result, CensusHouseholdSamplingResult):
             raise SynthEcoError("pums_data_tables:  update_pums_table_with_hh_coordinates " +

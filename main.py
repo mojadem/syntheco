@@ -95,11 +95,11 @@ def main():
     data_log(f"{census_sampling_result}")
 
     log("INFO", "outputting csvs")
-    #pums_derived_table = pums_heir_tables.update_pums_table_with_hh_coordinates(census_fitting_result,
-    #                                                                            census_sampling_result)
+    out_house = "{}.households.csv".format(ip['output_prefix'])
+    out_people = "{}.people.csv".format(ip['output_prefix'])
+    census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house, index=False)
+    census_fitting_result.data['Derived PUMS'].to_csv(out_people, index=False)
 
-    census_sampling_result.data['Household Geographic Assignments'].to_csv("{}.households.csv".format(ip['output_prefix']), index=False)
-    census_fitting_result.data['Derived PUMS'].to_csv("{}.pums_h.csv".format(ip['output_prefix']), index=False)
-    #print(pums_derived_table)
+
 if __name__ == "__main__":
     main()
