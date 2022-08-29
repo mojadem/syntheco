@@ -15,6 +15,7 @@ from shapely.geometry import Point
 import multiprocessing as mp
 import random as rn
 
+
 class UniformHouseholdSampling:
     """
     UniformHouseholdSampling
@@ -42,18 +43,16 @@ class UniformHouseholdSampling:
         """
         try:
             pums_deriv_df = house_samp_inst.fitting_result.data['Derived PUMS']
-            pums_deriv_df = pums_deriv_df.sort_values(by=['GEO_CODE','HH_ID'])
+            pums_deriv_df = pums_deriv_df.sort_values(by=['GEO_CODE', 'HH_ID'])
             border_gml = house_samp_inst.input_params['census_input_files']['border_gml']
             border_gdf = gpd.read_file(border_gml).to_crs("WGS 84")
 
-
-
-            hh_df = pums_deriv_df[['HH_ID','GEO_CODE']].drop_duplicates()
+            hh_df = pums_deriv_df[['HH_ID', 'GEO_CODE']].drop_duplicates()
             hh_dict = {}
 
             hh_freq = hh_df.groupby('GEO_CODE').size()
             hh_args = []
-            for gc,n in hh_freq.items():
+            for gc, n in hh_freq.items():
                 gc_border_gdf = border_gdf.loc[border_gdf['CTUID'] == float(gc)]
                 hh_args.append([gc, gc_border_gdf, n])
 
@@ -62,17 +61,15 @@ class UniformHouseholdSampling:
                 argList = [tuple([hh_dict_p] + x) for x in hh_args]
                 with manager.Pool(house_samp_inst.input_params["parallel_num_cores"]) as pool:
                     res = pool.map(UniformHouseholdSampling._select_house_coordinates_helper, argList)
-                #hh_dict[gc] = UniformHouseholdSampling.select_house_coordinates(gc,border_gdf,n)
                 hh_dict = dict(hh_dict_p)
             hh_df['latlon'] = hh_df.apply(lambda x: hh_dict[x['GEO_CODE']].pop(), axis=1)
             hh_df['longitude'] = hh_df.apply(lambda x: x['latlon'][0], axis=1)
             hh_df['latitude'] = hh_df.apply(lambda x: x['latlon'][1], axis=1)
             hh_df = hh_df.drop(columns=['latlon'])
-            return {"Household Geographic Assignments":hh_df}
+            return {"Household Geographic Assignments": hh_df}
 
         except Exception as e:
             raise SynthEcoError("uniform_household_sampling:sample_households\n{}".format(e))
-
 
     @staticmethod
     def _select_house_coordinates_helper(args):
@@ -92,7 +89,6 @@ class UniformHouseholdSampling:
             g_test = geocode_gdf['geometry'].contains(random_point)
             g_test.index = ['0']
             if g_test[0]:
-            #if random_point.within(geocode_gdf['geometry']):
-                coords.append((random_point.x,random_point.y))
+                coords.append((random_point.x, random_point.y))
 
         hh_dict[geo_code] = coords

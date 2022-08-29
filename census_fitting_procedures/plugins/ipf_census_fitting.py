@@ -13,7 +13,8 @@ from error import SynthEcoError
 from util import random_round_to_integer
 import random as rn
 import multiprocessing as mp
-import time, sys
+import time
+import pickle as pkl
 
 
 class IPFCensusHouseholdFittingProcedure:
@@ -71,6 +72,7 @@ class IPFCensusHouseholdFittingProcedure:
             fit_res = {}
             unconverged_geos = []
             fitting_arg_list = []
+
             for geo_code in geo_codes_of_interest:
                 log("DEBUG", "--IPF--: Beginning processing for geo_code {}".format(geo_code))
                 n_houses = num_houses.loc[geo_code, 'total']
@@ -94,16 +96,13 @@ class IPFCensusHouseholdFittingProcedure:
                 fitting_arg_list.append([geo_code, summary_geo_tables, pums_freq, fitting_vars, n_houses,
                                          max_iterations, convergence_rate, rate_tolerance])
             # Parallel execution
-            with mp.Manager() as manager:
-                #results_p = manager.dict()
-                #arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
-                arg_list = [tuple(x) for x in fitting_arg_list]
-                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                    results_p = pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
+            arg_list = [tuple(x) for x in fitting_arg_list]
+            with mp.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                results_p = pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
 
-                results = {}
-                for x in results_p:
-                    results[x[0]] = (x[1],x[2])
+            results = {}
+            for x in results_p:
+                results[x[0]] = (x[1], x[2])
 
             # Post process checking
             unconverged_geocodes = []
@@ -122,17 +121,17 @@ class IPFCensusHouseholdFittingProcedure:
             t1s = time.time()
             s_argList = []
 
-            with mp.Manager() as manager:
-                for g, f_dict in post_results.items():
-                    s_argList.append([pums_hier, f_dict, g, fitting_vars, metadata_json, alpha, K])
+            for g, f_dict in post_results.items():
+                s_argList.append([pums_hier, f_dict, g, fitting_vars, metadata_json, alpha, K])
 
-                arg_list = [tuple(x) for x in s_argList]
-                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                    results_p = pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
+            arg_list = [tuple(x) for x in s_argList]
+            with mp.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                results_p = pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
+
             sample_results = {}
-            for g,x in results_p:
+            for g, x in results_p:
                 sample_results[g] = x
-            t2s =  time.time()
+            t2s = time.time()
             t1 = time.time()
             # TODO: Move to Main
             num_cores = fit_proc_inst.input_params["parallel_num_cores"]
@@ -310,7 +309,7 @@ class IPFCensusHouseholdFittingProcedure:
                 sample_inds = sample_inds + list(inds_samp.sample(n_samples, replace=True, weights=prob_row))
 
             t12 = time.time()
-            log("INFO", "For Geocode {}, times are {}, {}".format(geo_code,t2-t1,t12-t11))
+            log("INFO", "For Geocode {}, times are {}, {}".format(geo_code, t2-t1, t12-t11))
 
             return (geo_code, sample_inds)
         except Exception as e:
