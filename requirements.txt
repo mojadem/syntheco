@@ -6,3 +6,4 @@ PyYAML==6.0
 requests==2.25.1
 requests_cache==0.9.4
 schema==0.7.5
+geopandas==0.11.0

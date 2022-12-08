@@ -13,6 +13,8 @@ from error import SynthEcoError
 from util import random_round_to_integer
 import random as rn
 import multiprocessing as mp
+import time
+import pickle as pkl
 
 
 class IPFCensusHouseholdFittingProcedure:
@@ -70,6 +72,7 @@ class IPFCensusHouseholdFittingProcedure:
             fit_res = {}
             unconverged_geos = []
             fitting_arg_list = []
+
             for geo_code in geo_codes_of_interest:
                 log("DEBUG", "--IPF--: Beginning processing for geo_code {}".format(geo_code))
                 n_houses = num_houses.loc[geo_code, 'total']
@@ -93,13 +96,13 @@ class IPFCensusHouseholdFittingProcedure:
                 fitting_arg_list.append([geo_code, summary_geo_tables, pums_freq, fitting_vars, n_houses,
                                          max_iterations, convergence_rate, rate_tolerance])
             # Parallel execution
-            with mp.Manager() as manager:
-                results_p = manager.dict()
-                arg_list = [tuple([results_p] + x) for x in fitting_arg_list]
-                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                    pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
+            arg_list = [tuple(x) for x in fitting_arg_list]
+            with mp.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                results_p = pool.map(IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode_helper, arg_list)
 
-                results = dict(results_p)
+            results = {}
+            for x in results_p:
+                results[x[0]] = (x[1], x[2])
 
             # Post process checking
             unconverged_geocodes = []
@@ -115,20 +118,31 @@ class IPFCensusHouseholdFittingProcedure:
                     raise SynthEcoError("--IPF--: There were unconverged geographic areas")
             else:
                 log("INFO", "--IPF--: All Geographic Areas Converged")
-
+            t1s = time.time()
             s_argList = []
+
             for g, f_dict in post_results.items():
                 s_argList.append([pums_hier, f_dict, g, fitting_vars, metadata_json, alpha, K])
 
-            with mp.Manager() as manager:
-                sam_dict = manager.dict()
-                arg_list = [tuple([sam_dict] + x) for x in s_argList]
+            arg_list = [tuple(x) for x in s_argList]
+            with mp.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
+                results_p = pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
 
-                with manager.Pool(fit_proc_inst.input_params["parallel_num_cores"]) as pool:
-                    pool.map(IPFCensusHouseholdFittingProcedure._select_households_helper, arg_list)
-                sample_results = dict(sam_dict)
+            sample_results = {}
+            for g, x in results_p:
+                sample_results[g] = x
+            t2s = time.time()
+            t1 = time.time()
+            # TODO: Move to Main
+            num_cores = fit_proc_inst.input_params["parallel_num_cores"]
+            new_pums_table_df = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results)
+            t2 = time.time()
 
-            return sample_results
+            log("INFO", "time to sample {}".format(t2s - t1s))
+            log("INFO", "time to create: {}".format(t2 - t1))
+
+            return {"Sample Results": sample_results,
+                    "Derived PUMS": new_pums_table_df}
 
         except Exception as e:
             raise SynthEcoError("{}".format(e))
@@ -144,7 +158,7 @@ class IPFCensusHouseholdFittingProcedure:
         return IPFCensusHouseholdFittingProcedure._perform_fitting_for_geocode(*args)
 
     @staticmethod
-    def _perform_fitting_for_geocode(fitting_results, geo_code, summary_geo_tables, pums_freq,
+    def _perform_fitting_for_geocode(geo_code, summary_geo_tables, pums_freq,
                                      fitting_vars, n_houses, max_iterations,
                                      convergence_rate, rate_tolerance):
 
@@ -220,7 +234,7 @@ class IPFCensusHouseholdFittingProcedure:
                          " {} SUM: {} NHOUSES: {}".format(geo_code,
                                                           results_rounded['total'].sum(),
                                                           n_houses))
-            fitting_results[geo_code] = (results[1], results_rounded)
+            return (geo_code, results[1], results_rounded)
 
     @staticmethod
     def calculate_ordinal_distance(pums_val, tab_val, r, k):
@@ -238,44 +252,48 @@ class IPFCensusHouseholdFittingProcedure:
         Returns:
             ordinal distance between the pums_val and tab_val
         '''
-        return 1-abs((float(pums_val) - float(tab_val))/r)**k
+        return 1-abs((pums_val - tab_val)/r)**k
 
     @staticmethod
     def calculate_categorical_distance(pums_val, tab_val, alpha):
         '''
         Document
         '''
-        return float(alpha) if float(pums_val) == float(tab_val) else 1.0-alpha
+        return alpha if pums_val == tab_val else 1.0-alpha
 
     @staticmethod
-    def _select_households(sample_dict, pums, fit_table, geo_code, fitting_vars,
+    def _select_households(pums, fit_table, geo_code, fitting_vars,
                            metadata_json, alpha=0.0, k=0.001):
         try:
+            t1 = time.time()
             log("INFO", "Running select households {}".format(geo_code))
             mat_array = np.array([1.0 for i in range(0, fit_table.shape[0]*pums.shape[0])])
             distance_matrix = mat_array.reshape(fit_table.shape[0], pums.shape[0])
+            c_o_d = IPFCensusHouseholdFittingProcedure.calculate_ordinal_distance
+            c_c_d = IPFCensusHouseholdFittingProcedure.calculate_categorical_distance
             for var in fitting_vars:
                 pums_ds = metadata_json[var]
                 table_values = fit_table[var]
+                table_values = table_values.astype(float)
                 pums_values = pums[var]
+                pums_values = pums_values.astype(float)
                 # r is the difference between the maximum and minimum value of the fitting var
                 if pums_ds['sample_type'] == "ordinal":
                     r = int(pums_values.max()) - int(pums_values.min())
                     for i in range(0, distance_matrix.shape[0]):
                         table_value = table_values[table_values.index[i]]
-                        c_o_d = IPFCensusHouseholdFittingProcedure.calculate_ordinal_distance
                         distance_tmp = np.array([c_o_d(x, table_value, r, k) for x in list(pums_values)])
                     distance_matrix[i] = distance_matrix[i] * distance_tmp
                 else:
                     for i in range(0, distance_matrix.shape[0]):
                         table_value = table_values[table_values.index[i]]
-                        c_c_d = IPFCensusHouseholdFittingProcedure.calculate_categorical_distance
                         distance_tmp = np.array([c_c_d(x, table_value, 0.0) for x in list(pums_values)])
                         distance_matrix[i] = distance_matrix[i] * distance_tmp
 
             distance_sums = distance_matrix.sum(axis=1)
             prob_matrix = np.apply_along_axis(lambda x: x/distance_sums, 0, distance_matrix)
-
+            t2 = time.time()
+            t11 = time.time()
             sample_inds = []
             for i in range(0, fit_table.shape[0]):
                 t_i = list(fit_table.index)[i]
@@ -290,7 +308,10 @@ class IPFCensusHouseholdFittingProcedure:
                 inds_samp = pd.Series(pums.index)
                 sample_inds = sample_inds + list(inds_samp.sample(n_samples, replace=True, weights=prob_row))
 
-            sample_dict[geo_code] = sample_inds
+            t12 = time.time()
+            log("INFO", "For Geocode {}, times are {}, {}".format(geo_code, t2-t1, t12-t11))
+
+            return (geo_code, sample_inds)
         except Exception as e:
             SynthEcoError("There was a problem in parallel select_housholds:\n{}".format(e))
 

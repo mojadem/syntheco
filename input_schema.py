@@ -13,8 +13,10 @@ _schema_specs = {
         "census_converter": And(str, Or("us", "canada")),
         "census_fitting_vars": [str],
         "census_fitting_procedure": str,
+        "census_household_sampling_procedure": str,
         Optional("output_log_file", default="sytheco_out.txt"): str,
         Optional("output_data_log_file", default="syntheco_data_out.txt"): str,
+        Optional("output_prefix", default="syntheco_population"): str,
         Optional("ipf_max_iterations", default=10000): int,
         Optional("ipf_fail_on_nonconvergence", default=False): bool,
         Optional("ipf_convergence_rate", default=1.0e-5): float,
@@ -32,7 +34,7 @@ _schema_specs = {
     "canada": {
         "census_input_files": And(dict, {str: os.path.exists}),
         "census_high_res_geo_unit": int,
-        "census_low_res_geo_unit": int,
+        "census_low_res_geo_unit": int
     },
 }
 
