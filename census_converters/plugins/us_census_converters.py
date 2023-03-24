@@ -3,64 +3,123 @@ us_census_converters
 
 This is the code for the US Census Plugins
 """
-
-
 import pandas as pd
 import numpy as np
-
-import time
-import requests
 import requests_cache
-from requests.exceptions import HTTPError
+import time
+from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
+from datetime import timedelta
 
 from census_converters import hookimpl
 from census_converters.census_converter import CensusConverter
 from logger import log
 
 
-requests_cache.install_cache("api-response-cache", backend="filesystem")
-
-
-def _api_call(url, params):
+class APIManager:
     """
-    _api_call
-    A wrapper for requests.get() that includes logging, timing, and error handling.
+    APIManager class
 
-    returns:
-        pandas dataframe containing response content
+    This singleton class interfaces with the US Census API.
     """
-    try:
+
+    def __init__(self):
+        """
+        Constructor
+
+        Sets up the connection to the US Census API.
+
+        Returns:
+            An instance of the APIManager
+        """
+        session = requests_cache.CachedSession(
+            "api-response-cache",
+            backend="filesystem",
+            expire_after=timedelta(days=1),
+        )
+        retry = Retry(total=5, backoff_factor=1)
+        adapter = HTTPAdapter(max_retries=retry)
+        base_url = "https://api.census.gov/data"
+        session.mount(base_url, adapter)
+
+        self.session = session
+        self.base_url = base_url
+
+    def api_call(self, url="", params=None):
+        """
+        api_call
+
+        Handles the request to the US Census API.
+
+        Arguments:
+            - url (str): the url to request; appended onto the base_url
+            - params (dict): the parameters to pass into the request
+
+        Returns:
+            The response data in json format
+        """
         start = time.time()
         log("DEBUG", f"API call in progress...")
-        response = requests.get(url, params)
-        elapsed = time.time() - start
-    except HTTPError as e:
-        log("ERROR", f"Failed API call (HTTP ERROR): {e}")
-    else:
-        info = "from cache" if response.from_cache else f"took {round(elapsed)}s"
-        log("DEBUG", f"Successful API call ({info}): {response.url}")
-    finally:
-        data = response.json()
-        raw_df = pd.DataFrame(data[1:], columns=data[0])
-        return raw_df
+
+        try:
+            response = self.session.get(self.base_url + url, params=params, timeout=10)
+            response.raise_for_status()
+        # TODO: handle errors separately
+        except HTTPError as e:
+            log("ERROR", f"Failed API call (HTTPError): {e}")
+            raise
+        except ConnectionError as e:
+            log("ERROR", f"Failed API call (ConnectionError): {e}")
+            raise
+        except Timeout as e:
+            log("ERROR", f"Failed API call (Timeout): {e}")
+            raise
+        except RequestException as e:
+            log("ERROR", f"Failed API call (RequestException): {e}")
+            raise
+        else:
+            elapsed = time.time() - start
+            info = "from cache" if response.from_cache else f"took {round(elapsed)}s"
+            log("DEBUG", f"Successful API call ({info}): {response.url}")
+
+            return response.json()
 
 
-def _formulate_fips(raw_df, ip, api_vars):
+api_manager = APIManager()
+
+
+def _format_df(data, ip=None, api_vars=None, formulate_geo_code=True):
     """
-    _formulate_fips
-    Formulates the fips codes by appending the state and county codes, as well as
-    the tract code if that geography was specified. This will be set as the
-    index of the dataframe and the remaining columns will be set to the API variables.
+    _format_df
+
+    Helper function that will convert the json data received from the Census API
+    to a pandas dataframe with columns set appropriately. This will formulate
+    FIPS codes from the present geography columns, setting it as the index, as
+    well as set the remaining columns to the API variables.
+
+    Note that FIPS is standardized to GEO_CODE.
+
+    Arguments:
+        - data (List[str]): the data to format, in json format
+        - ip (InputParams): the input parameters of the census converter instance
+        - api_vars (List[str]): the list of API variables retrieved from the Census API
+        - formulate_geo_code (bool): if the function should formulate the GEO_CODE as the index
 
     returns:
         the formatted dataframe
     """
-    raw_df["FIPS"] = raw_df["state"] + raw_df["county"]
-    if ip["census_high_res_geo_unit"] == "tract":
-        raw_df["FIPS"] += raw_df["tract"]
+    raw_df = pd.DataFrame(data[1:], columns=data[0])
 
-    raw_df = raw_df[["FIPS"] + api_vars]
-    raw_df = raw_df.set_index("FIPS")
+    if not formulate_geo_code:  # PUMS converter does not require GEO_CODE
+        return raw_df
+
+    raw_df["GEO_CODE"] = raw_df["state"] + raw_df["county"]
+    if ip["census_high_res_geo_unit"] == "tract":
+        raw_df["GEO_CODE"] += raw_df["tract"]
+
+    raw_df = raw_df[["GEO_CODE"] + api_vars]
+    raw_df = raw_df.set_index("GEO_CODE")
 
     return raw_df
 
@@ -77,6 +136,7 @@ class USCensusGlobalPlugin:
     def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
         read_raw_data_into_pandas
+
         Retrieves relevant data from the Census API
 
         Returns:
@@ -90,7 +150,7 @@ class USCensusGlobalPlugin:
 
         ip = cens_conv_inst.input_params
 
-        url = "https://api.census.gov/data/{}/dec/pl".format(ip["census_year"])
+        url = "/{}/dec/pl".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
             "for": "{}:*".format(ip["census_high_res_geo_unit"]),
@@ -98,14 +158,15 @@ class USCensusGlobalPlugin:
             "key": ip["api_key"],
         }
 
-        raw_df = _api_call(url, params)
-        raw_df = _formulate_fips(raw_df, ip, api_vars)
+        data = api_manager.api_call(url, params)
+        raw_df = _format_df(data, ip, api_vars)
         return raw_df
 
     @hookimpl
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
+
         Formats the raw data into global tables
 
         Returns:
@@ -147,7 +208,7 @@ class USCensusGlobalPlugin:
             "total_population_by_geo": pop_df,
             "number_households_by_geo": nh_df,
             "geos_of_interest": geos_of_interest,
-            "census_variable_metadata": cens_conv_inst.metadata_json
+            "census_variable_metadata": cens_conv_inst.metadata_json,
         }
 
 
@@ -163,6 +224,7 @@ class USCensusSummaryPlugin:
     def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
         _read_raw_data_into_pandas
+
         Retrieves relevant data from the Census API
 
         Returns:
@@ -170,7 +232,8 @@ class USCensusSummaryPlugin:
         """
         # retrieve api vars from metadata_json
         metadata_json = cens_conv_inst.metadata_json
-        api_vars = [metadata_json[v]["profile_vars"] for v in metadata_json]
+        pums_vars = cens_conv_inst.input_params["census_fitting_vars"]
+        api_vars = [metadata_json[v]["profile_vars"] for v in pums_vars]
         api_vars = [
             pv for v in api_vars for pv in v
         ]  # flatten nested list of profile_vars
@@ -179,9 +242,7 @@ class USCensusSummaryPlugin:
 
         ip = cens_conv_inst.input_params
 
-        url = "https://api.census.gov/data/{}/acs/acs5/profile".format(
-            ip["census_year"]
-        )
+        url = "/{}/acs/acs5/profile".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
             "for": "{}:*".format(ip["census_high_res_geo_unit"]),
@@ -189,20 +250,21 @@ class USCensusSummaryPlugin:
             "key": ip["api_key"],
         }
 
-        raw_df = _api_call(url, params)
-        raw_df = _formulate_fips(raw_df, ip, api_vars)
+        data = api_manager.api_call(url, params)
+        raw_df = _format_df(data, ip, api_vars)
         return raw_df
 
     @hookimpl
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
+
         Formats the raw data into processed summary count tables
 
         Returns:
             an updated dataframe to be set to processed_data_df
         """
-        pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
+        pums_vars = cens_conv_inst.input_params["census_fitting_vars"]
         proc_df = cens_conv_inst.raw_data_df.copy()
 
         sum_tables = {}
@@ -218,18 +280,18 @@ class USCensusSummaryPlugin:
                 var_df[i] = var_df[prof_vars].sum(axis=1)
 
             var_df = var_df.drop(columns=var_ds["profile_vars"]).stack().reset_index()
-            var_df.columns = ["FIPS", var, "total"]
+            var_df.columns = ["GEO_CODE", var, "total"]
 
             # handle cases where total is 0 for all indeces in common_var_map
-            sum_by_geo = var_df.groupby("FIPS").sum()
+            sum_by_geo = var_df.groupby("GEO_CODE").sum()
             var_df["total"] = var_df.apply(
                 lambda x: 1.0  # right now just converts them to 1.0
-                if sum_by_geo.loc[x["FIPS"]]["total"] == 0
+                if sum_by_geo.loc[x["GEO_CODE"]]["total"] == 0
                 else x["total"],
                 axis=1,
             )
 
-            var_df = var_df.set_index("FIPS")
+            var_df = var_df.set_index("GEO_CODE")
 
             var_df["total"] = var_df["total"].astype(np.float64)
 
@@ -252,6 +314,7 @@ class USCensusPUMSPlugin:
     def read_raw_data_into_pandas(cens_conv_inst: CensusConverter):
         """
         _read_raw_data_into_pandas
+
         Retrieves relevant data from the Census API
 
         Returns:
@@ -259,29 +322,35 @@ class USCensusPUMSPlugin:
         """
         ip = cens_conv_inst.input_params
 
-        api_vars = ip["census_fitting_vars"]
+        api_vars = ["SERIALNO"] + ip["census_fitting_vars"]
 
-        url = "https://api.census.gov/data/{}/acs/acs5/pums".format(ip["census_year"])
+        url = "/{}/acs/acs5/pums".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
             "for": "{}".format(ip["census_low_res_geo_unit"]),
             "key": ip["api_key"],
         }
 
-        raw_df = _api_call(url, params)
+        data = api_manager.api_call(url, params)
+        raw_df = _format_df(data, formulate_geo_code=False)
         return raw_df
 
     @hookimpl
     def transform(cens_conv_inst: CensusConverter):
         """
         transform
+
         Formats the raw data into processed PUMS tables
 
         Returns:
             an updated dataframe to be set to processed_data_df
         """
-        pums_vars = cens_conv_inst.input_params.input_params["census_fitting_vars"]
-        proc_df = cens_conv_inst.raw_data_df.astype(np.int64)
+        pums_vars = cens_conv_inst.input_params["census_fitting_vars"]
+        cens_conv_inst.raw_data_df = cens_conv_inst.raw_data_df.rename(
+            columns={"SERIALNO": "HH_ID"}
+        )
+        proc_df = cens_conv_inst.raw_data_df.copy()
+        proc_df[pums_vars] = proc_df[pums_vars].astype(np.int64)
 
         for var in pums_vars:
             new_col_name = f"{var}_m"
@@ -316,7 +385,8 @@ class USCensusPUMSPlugin:
         freq_df.name = "PUMS Data Frequency Representation"
         cens_conv_inst.raw_data_df.name = "PUMS Data Raw Data"
 
-        return {"categorical_table": proc_df,
-                "frequency_table": freq_df,
-                "raw_data": cens_conv_inst.raw_data_df
-                }
+        return {
+            "categorical_table": proc_df,
+            "frequency_table": freq_df,
+            "raw_data": cens_conv_inst.raw_data_df,
+        }
