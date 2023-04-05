@@ -3,8 +3,9 @@ import random as rn
 import os
 import csv
 import pandas as pd
-from error import SynthEcoError
+import shutil
 
+from error import SynthEcoError
 import util
 
 
@@ -51,4 +52,4 @@ class TestFileCache:
         assert csvFileCache.get_file("test").equals(csvDF)
 
         assert csvFileCache.flush()
-        os.remove(csvFileCache)
+        shutil.rmtree(csvFileCache.get_location())
