@@ -145,13 +145,22 @@ class USCensusGlobalPlugin:
         Returns:
             the raw data table from the US Census data
         """
+        ip = cens_conv_inst.input_params
+        if ip.input_params["use_census_api"]:
+            print("!!!!!! using API")
+            return USCensusGlobalPlugin._read_raw_data_into_pandas_from_api(ip)
+        else:
+            print("!!!!!!!Using Files Summary")
+            return USCensusGlobalPlugin._read_raw_data_into_pandas_from_file(ip)
+        
+    @staticmethod
+    def _read_raw_data_into_pandas_from_api(ip):
+
         # data variables we will be retrieving from api
         api_vars = [
             "P1_001N",  # total population data
             "H1_001N",  # total housing data
         ]
-
-        ip = cens_conv_inst.input_params
 
         url = "/{}/dec/pl".format("2020") #ip["census_year"])
         params = {
@@ -164,7 +173,46 @@ class USCensusGlobalPlugin:
         data = api_manager.api_call(url, params)
         raw_df = _format_df(data, ip, api_vars)
         return raw_df
+    
+    @staticmethod
+    def _read_raw_data_into_pandas_from_file(ip):
+        '''
+        _read_raw_data_into_pandas_from_file
+        Private function that reads data from downloaded files.
+        The python notebook that sets the directory up is in the contrib folder
 
+        The directory structure is {ip.census_data_dir}/{census_year}/Profile/{stateFips}/prof_{stateFips}.csv
+
+        Arguments:
+            ip: InputParams from a yaml file
+
+        Returns:
+            DataFrame with all of the Profile Variables
+
+        NOTE: ONLY WORKS RIGHT NOW WITH STATE AND TRACTS
+
+        '''
+        try:
+            low_res_geo_unit = ip.input_params['census_low_res_geo_unit']
+            profile_csv = os.path.join(ip.input_params['census_data_dir'],
+                                    str(ip.input_params['census_year']),
+                                    "Profile",
+                                    f"{low_res_geo_unit}",
+                                    f"prof_{low_res_geo_unit}.csv")
+            profile_iter = pd.read_csv(profile_csv,
+                                    iterator=True,
+                                    usecols=["state","county","tract", "DP05_0001E","DP04_0001E"],
+                                    chunksize=1000)
+            raw_df = pd.concat([chunk for chunk in profile_iter])
+            raw_df['GEO_CODE'] = raw_df.apply(lambda x: ''.join([str(x['state']).zfill(2), 
+                                                                 str(x['county']).zfill(3),
+                                                                 str(x['tract']).zfill(6)]), axis=1)
+            raw_df = raw_df.rename(columns={"DP05_0001E":"total_population","DP04_0001E":"number_households"})
+            raw_df = raw_df.set_index('GEO_CODE')
+            return raw_df    
+        except Exception as e:
+            raise SynthEcoError(f"USCensusSummaryPlugin read_raw_data_into_pandas_from_file:\n{e}")
+        
     @hookimpl
     def transform(cens_conv_inst: CensusConverter):
         """
@@ -178,8 +226,8 @@ class USCensusGlobalPlugin:
         # total population table
         pop_df = (
             cens_conv_inst.raw_data_df.copy()
-            .drop(columns=["H1_001N"])
-            .rename(columns={"P1_001N": "total"})
+            .drop(columns=["number_households"])
+            .rename(columns={"total_population": "total"})
         )
 
         pop_df["total"] = pop_df["total"].astype(np.float64)
@@ -187,8 +235,8 @@ class USCensusGlobalPlugin:
         # total number of households table
         nh_df = (
             cens_conv_inst.raw_data_df.copy()
-            .drop(columns=["P1_001N"])
-            .rename(columns={"H1_001N": "total"})
+            .drop(columns=["total_population"])
+            .rename(columns={"number_households": "total"})
         )
 
         nh_df["total"] = nh_df["total"].astype(np.float64)
