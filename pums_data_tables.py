@@ -29,10 +29,11 @@ class PUMSDataTables:
     def __str__(self):
         """
         This method returns a nice print out of the GlobalTables
+        # fix this
         """
         return '\n'.join(["PUMS Tables",
                           "------------------------------------------------------"] +
-                         [f"{x.name}\n{x}" for x in self.data.values()])
+                         [f"{x.name}\n{x}" for x in self.data.values() if isinstance(x,pd.DataFrame)])
 
     def create_new_pums_table_from_household_ids(self, hh_inds_by_geo):
         """

@@ -87,18 +87,19 @@ def main():
     census_fitting_result = CensusFittingResult(converter_=census_fitting_procedure)
 
     data_log(f"{census_fitting_result}")
-    log("INFO", "Sampling Households from fitting results")
-    census_household_sampling_proc = CensusHouseholdSampling(ip, census_fitting_result,
-                                                             pums_heir_tables, global_tables)
+    if ip['census_household_sampling_procedure'] != "None":
+        log("INFO", "Sampling Households from fitting results")
+        census_household_sampling_proc = CensusHouseholdSampling(ip, census_fitting_result,
+                                                                pums_heir_tables, global_tables)
+        
+        census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
+        data_log(f"{census_sampling_result}")
 
-    census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
-    data_log(f"{census_sampling_result}")
-
-    log("INFO", "outputting csvs")
-    out_house = "{}.households.csv".format(ip['output_prefix'])
-    out_people = "{}.people.csv".format(ip['output_prefix'])
-    census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house, index=False)
-    census_fitting_result.data['Derived PUMS'].to_csv(out_people, index=False)
+        log("INFO", "outputting csvs")
+        out_house = "{}.households.csv".format(ip['output_prefix'])
+        out_people = "{}.people.csv".format(ip['output_prefix'])
+        census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house, index=False)
+        census_fitting_result.data['Derived PUMS'].to_csv(out_people, index=False)
 
 
 if __name__ == "__main__":
