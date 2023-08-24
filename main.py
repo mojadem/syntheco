@@ -3,7 +3,7 @@ main
 
 This is the main control module for syntheco
 """
-import argparse
+import argparse, sys
 from census_converters.census_converter import CensusConverter
 from census_fitting_procedures.census_fitting_procedure import CensusFittingProcedure
 from census_household_sampling.census_household_sampling import CensusHouseholdSampling
@@ -96,6 +96,7 @@ def main():
         data_log(f"{census_sampling_result}")
 
         log("INFO", "outputting csvs")
+        sys.exit()
         out_house = "{}.households.csv".format(ip['output_prefix'])
         out_people = "{}.people.csv".format(ip['output_prefix'])
         census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house, index=False)

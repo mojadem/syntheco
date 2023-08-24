@@ -204,15 +204,15 @@ class USCensusGlobalPlugin:
                                     usecols=["state","county","tract", "DP05_0001E","DP04_0001E"],
                                     chunksize=1000)
             raw_df = pd.concat([chunk for chunk in profile_iter])
-            raw_df['GEO_CODE'] = raw_df.apply(lambda x: ''.join([str(x['state']).zfill(2), 
+            raw_df['GEO_CODE'] = raw_df.apply(lambda x: ''.join([str(x['state']).zfill(2),
                                                                  str(x['county']).zfill(3),
                                                                  str(x['tract']).zfill(6)]), axis=1)
             raw_df = raw_df.rename(columns={"DP05_0001E":"total_population","DP04_0001E":"number_households"})
             raw_df = raw_df.set_index('GEO_CODE')
-            return raw_df    
+            return raw_df
         except Exception as e:
             raise SynthEcoError(f"USCensusSummaryPlugin read_raw_data_into_pandas_from_file:\n{e}")
-        
+       
     @hookimpl
     def transform(cens_conv_inst: CensusConverter):
         """
@@ -506,7 +506,11 @@ class USCensusPUMSPlugin:
                                     chunksize=1000)
             
             raw_df["Person"] = pd.concat([chunk for chunk in pums_p_iter])
+            raw_df["Person"] = raw_df["Person"].rename(columns={'SERIALNO': 'HH_ID'})
             raw_df["Person"].name = "PUMS Raw Household Data"
+
+            ### Lastly, there is no point in keeping households that don't have people entries
+            raw_df["Household"] = raw_df["Household"][raw_df["Household"]['HH_ID'].isin(set(raw_df['Person']['HH_ID']))]
                                         
             return raw_df
     
