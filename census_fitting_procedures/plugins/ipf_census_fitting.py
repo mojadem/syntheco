@@ -135,17 +135,16 @@ class IPFCensusHouseholdFittingProcedure:
             t1 = time.time()
             # TODO: Move to Main
             num_cores = fit_proc_inst.input_params["parallel_num_cores"]
-            if fit_proc_inst.pums_tables.is_separate():
-                 new_pums_table_df = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids_with_separate_files(sample_results)
-            else:
-                new_pums_table_df = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results)
+
+            new_pums_table = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results)
+
             t2 = time.time()
 
             log("INFO", "time to sample {}".format(t2s - t1s))
             log("INFO", "time to create: {}".format(t2 - t1))
 
             return {"Sample Results": sample_results,
-                    "Derived PUMS": new_pums_table_df}
+                    "Derived PUMS": new_pums_table}
 
         except Exception as e:
             raise SynthEcoError("{}".format(e))

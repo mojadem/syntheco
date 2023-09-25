@@ -15,6 +15,7 @@ import os
 from census_household_sampling.hookspec import hookspec, CensusHouseholdSamplingSpec
 from global_tables import GlobalTables
 from pums_data_tables import PUMSDataTables
+from border_tables import BorderTables
 from input import InputParams
 from census_fitting_result import CensusFittingResult
 from logger import log, data_log
@@ -22,8 +23,6 @@ from error import SynthEcoError
 
 plugin_map = {'uniform': {"module": "census_household_sampling.plugins.uniform_household_sampling",
                           "class": "UniformHouseholdSampling"}}
-
-# Need to get the metadata in here, maybe I should make that a separate data structure???
 
 
 def initialize(sampling_procedure):
@@ -67,7 +66,7 @@ class CensusHouseholdSampling:
     Skeleton class for the plugin framework for randomly sampling and placing Households
     within a geographic area
     """
-    def __init__(self, input_params, fitting_result, pums_data_tables, global_tables):
+    def __init__(self, input_params, fitting_result, pums_data_tables, global_tables, border_tables):
         """
         Constructor
 
@@ -88,12 +87,18 @@ class CensusHouseholdSampling:
             raise SynthEcoError("Census Household Sampling Plugin Global Tables is either empty or of wrong type")
         if fitting_result is None or not isinstance(fitting_result, CensusFittingResult):
             raise SynthEcoError("Census Household Sampling Plugin Fitting result is either empty or of wrong type")
+        if pums_data_tables is None or not isinstance(pums_data_tables, PUMSDataTables):
+            raise SynthEcoError("Census Household Sampling Plugin PUMS Tables are either empty or of wrong type")
+        if border_tables is None or not isinstance(border_tables, BorderTables):
+            raise SynthEcoError("Census Household Sampling Plugin Border Tables are either empty or of wrong type")
 
         self.input_params = input_params
         plug_manager = initialize(self.input_params['census_household_sampling_procedure'])
 
         self.global_tables = global_tables
+        self.pums_data_tables = pums_data_tables
         self.fitting_result = fitting_result
+        self.border_tables = border_tables
         self.hook = plug_manager.hook
         self.processed_data_df = pd.DataFrame()
 
