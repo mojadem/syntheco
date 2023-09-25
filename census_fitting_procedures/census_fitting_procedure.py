@@ -17,8 +17,9 @@ from error import SynthEcoError
 from logger import log, data_log
 
 plugin_map = {'ipf': {'module': 'census_fitting_procedures.plugins.ipf_census_fitting',
-                      'class': 'IPFCensusHouseholdFittingProcedure'}}
-
+                      'class': 'IPFCensusHouseholdFittingProcedure'},
+              'ipf_sep_p_h': {'module': 'census_fitting_procedures.plugins.ipt_census_with_separate_p_h_file',
+                              'class': 'IPFCensusHouseholdWithSeparatePHFilesProcedure'}}
 
 def initialize(fitting_procedure):
     """

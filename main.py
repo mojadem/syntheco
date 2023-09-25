@@ -12,6 +12,7 @@ from input import InputParams
 from global_tables import GlobalTables
 from pums_data_tables import PUMSDataTables
 from summary_data_tables import SummaryDataTables
+from border_tables import BorderTables
 from census_fitting_result import CensusFittingResult
 from census_household_sampling_result import CensusHouseholdSamplingResult
 from logger import setup_logger, log, data_log
@@ -64,7 +65,15 @@ def main():
                                  converter_=glob_table_conv)
 
     log("INFO", "Global Tables Created")
-    # data_log(f"{global_tables}")
+    data_log(f"{global_tables}")
+
+    log("INFO", "Setting Up Border Tables")
+    bord_table_conv = CensusConverter(ip, census_conv, "border")
+    log("INFO", "Border Converter Created")
+    border_tables = BorderTables(geo_unit_=ip['census_high_res_geo_unit'],
+                                 converter_=bord_table_conv)
+    print(f"{border_tables.data}")
+    log("INFO", "Border Tables Created")
 
     log("INFO", "Setting up Census Converters")
     pums_table_conv = CensusConverter(ip, census_conv, "pums")
@@ -87,18 +96,24 @@ def main():
     census_fitting_result = CensusFittingResult(converter_=census_fitting_procedure)
 
     data_log(f"{census_fitting_result}")
-    log("INFO", "Sampling Households from fitting results")
-    census_household_sampling_proc = CensusHouseholdSampling(ip, census_fitting_result,
-                                                             pums_heir_tables, global_tables)
+    if ip['census_household_sampling_procedure'] != "None":
+        log("INFO", "Sampling Households from fitting results")
+        census_household_sampling_proc = CensusHouseholdSampling(ip, census_fitting_result,
+                                                                 pums_heir_tables, global_tables, border_tables)
+        census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
+        data_log(f"{census_sampling_result}")
 
-    census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
-    data_log(f"{census_sampling_result}")
-
-    log("INFO", "outputting csvs")
-    out_house = "{}.households.csv".format(ip['output_prefix'])
-    out_people = "{}.people.csv".format(ip['output_prefix'])
-    census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house, index=False)
-    census_fitting_result.data['Derived PUMS'].to_csv(out_people, index=False)
+        log("INFO", "outputting csvs")
+        out_house_coords = "{}.households_coords.csv".format(ip['output_prefix'])
+        out_households = "{}.households.csv".format(ip['output_prefix'])
+        out_people = "{}.people.csv".format(ip['output_prefix'])
+        print(type(census_fitting_result.data['Derived PUMS']))
+        census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house_coords, index=False)
+        if isinstance(census_fitting_result.data['Derived PUMS'], dict):
+            census_fitting_result.data['Derived PUMS']['Person'].to_csv(out_people, index=False)
+            census_fitting_result.data['Derived PUMS']['Household'].to_csv(out_households, index=False)
+        else:
+            census_fitting_result.data['Derived PUMS'].to_csv(out_people, index=False)
 
 
 if __name__ == "__main__":

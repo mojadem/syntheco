@@ -7,6 +7,7 @@ This is the code for the Canada Census Plugins
 
 import pandas as pd
 import numpy as np
+import geopandas as gpd
 import json
 from census_converters import hookimpl
 from logger import log, data_log
@@ -48,7 +49,6 @@ class CanadaCensusGlobalPlugin:
             return raw_df
         except Exception as e:
             raise SynthEcoError("CanadaCensusGlobalPlugin: read_raw_data_into_pandas\n{}".format(e))
-
 
     @hookimpl
     def transform(cens_conv_inst):
@@ -295,12 +295,10 @@ class CanadaCensusPUMSPlugin:
                                     dtype={'CMA': str},
                                     chunksize=1000)
 
-
             raw_df = pd.concat([chunk[(chunk['CMA'].str.find(str(low_res_geo), 0) == 0)] for chunk in pums_iter])
             return raw_df
         except Exception as e:
             raise SynthEcoError("CanadaCensusPUMSPlugin: read_raw_data_into_pandas\n{}".format(e))
-
 
     @hookimpl
     def transform(cens_conv_inst):
@@ -372,7 +370,8 @@ class CanadaCensusPUMSPlugin:
 
             return {"raw_data": cens_conv_inst.raw_data_df,
                     "categorical_table": processed_data_df,
-                    "frequency_table": pums_freq_df}
+                    "frequency_table": pums_freq_df,
+                    "separate": False}
         except Exception as e:
             SynthEcoError("CanadaCensusPUMSPlugin:transform\n{}".format(str(e)))
 
@@ -394,3 +393,49 @@ class CanadaCensusPUMSPlugin:
             raise
 
         return pums_df
+
+
+class CanadaCensusBorderPlugin:
+    """
+
+    """
+
+    @hookimpl
+    def read_raw_data_into_pandas(cens_conv_inst):
+        """
+        read_raw_data_into_pandas
+
+        Retrieves relevant data from the Census API
+
+        Returns:
+        the raw data table from the Canadian Census data
+        """
+        try:
+            ip = cens_conv_inst.input_params
+            border_file = ip['census_input_files']['border_gml']
+
+            return gpd.read_file(border_file).to_crs("WGS 84")
+
+        except Exception as e:
+            raise SynthEcoError(f"CanadaCensusBorder.read raw data error: \n{e}")
+
+    @hookimpl
+    def transform(cens_conv_inst):
+        """
+        transform
+
+        Formats the raw data into processed Border tables
+
+        Returns:
+            an updated dataframe to be set to processed_data_df
+        """
+
+        try:
+            processed_df = cens_conv_inst.raw_data_df.rename(columns={'CTUID': 'GEO_UNIT'}).astype({'GEO_UNIT': 'str'})
+            processed_df['GEO_UNIT_P'] = processed_df.apply(lambda row: f"{row['GEO_UNIT']}0"
+                                                            if "." in row['GEO_UNIT'][-2]
+                                                            else row['GEO_UNIT'], axis=1)
+            processed_df = processed_df.drop(columns=['GEO_UNIT']).rename(columns={'GEO_UNIT_P': 'GEO_UNIT'})
+            return processed_df
+        except Exception as e:
+            raise SynthEcoError(f"CanadaCensusBorder.transform error: \n{e}")

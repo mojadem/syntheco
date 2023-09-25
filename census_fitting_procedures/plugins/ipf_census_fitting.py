@@ -50,7 +50,7 @@ class IPFCensusHouseholdFittingProcedure:
         returns a pandas dataFrame that provides the results of the IPF procedure
         """
         log("INFO", "--IPF--: Beginning Iterative Proportional Fitting Procedure")
-        log("INFO", "--IPF--: Running in Parallel with {}".format(fit_proc_inst.input_params['parallel_num_cores']))
+        log("INFO", f"--IPF--: Running in Parallel with {fit_proc_inst.input_params['parallel_num_cores']}")
         try:
             # IPF Specific input parameters
             max_iterations = fit_proc_inst.input_params["ipf_max_iterations"]
@@ -74,13 +74,13 @@ class IPFCensusHouseholdFittingProcedure:
             fitting_arg_list = []
 
             for geo_code in geo_codes_of_interest:
-                log("DEBUG", "--IPF--: Beginning processing for geo_code {}".format(geo_code))
+                log("DEBUG", f"--IPF--: Beginning processing for geo_code {geo_code}")
                 n_houses = num_houses.loc[geo_code, 'total']
                 summary_geo_tables = []
                 pums_freq = pums_freq_org.copy(deep=True)
                 # Extract the geo_code information from summary Tables
                 for var in fitting_vars:
-                    log("DEBUG", "--IPF--: Transforming {} {}".format(geo_code, var))
+                    log("DEBUG", f"--IPF--: Transforming {geo_code} {var}")
                     sum_t_df = summary_tables[var]
                     # sum_t_df = sum_t_df.set_index('GEO_CODE')
 
@@ -113,7 +113,7 @@ class IPFCensusHouseholdFittingProcedure:
                 post_results[g] = r[1]
 
             if len(unconverged_geocodes) > 0:
-                log("INFO", "--IPF--: The following geo_codes did not converge\n{}".format(unconverged_geocodes))
+                log("INFO", f"--IPF--: The following geo_codes did not converge\n{unconverged_geocodes}")
                 if fit_proc_inst.input_params['ipf_fail_on_nonconvergence']:
                     raise SynthEcoError("--IPF--: There were unconverged geographic areas")
             else:
@@ -135,14 +135,16 @@ class IPFCensusHouseholdFittingProcedure:
             t1 = time.time()
             # TODO: Move to Main
             num_cores = fit_proc_inst.input_params["parallel_num_cores"]
-            new_pums_table_df = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results)
+
+            new_pums_table = fit_proc_inst.pums_tables.create_new_pums_table_from_household_ids(sample_results)
+
             t2 = time.time()
 
             log("INFO", "time to sample {}".format(t2s - t1s))
             log("INFO", "time to create: {}".format(t2 - t1))
 
             return {"Sample Results": sample_results,
-                    "Derived PUMS": new_pums_table_df}
+                    "Derived PUMS": new_pums_table}
 
         except Exception as e:
             raise SynthEcoError("{}".format(e))
@@ -174,12 +176,12 @@ class IPFCensusHouseholdFittingProcedure:
         # 2 is the convergence at each iteration.
         if results[1] == 0:
             log("DEBUG", "--IPF--: -----------------------------------------------------------------")
-            log("INFO", "--IPF--: Geocode {} NOT CONVERGED".format(geo_code))
-            log("DEBUG", "--IPF--: Variables: \npums_freq\n{}\nsumary\n{}".format(pums_freq, summary_geo_tables))
-            log("DEBUG", "--IPF--: Results = {}".format(results))
+            log("INFO", f"--IPF--: Geocode {geo_code} NOT CONVERGED")
+            log("DEBUG", f"--IPF--: Variables: \npums_freq\n{pums_freq}\nsumary\n{summary_geo_tables}")
+            log("DEBUG", f"--IPF--: Results = {results}")
             log("DEBUG", "--IPF--: -----------------------------------------------------------------")
         else:
-            log("INFO", "--IPF--: Geocode {} converged in {} iterations".format(geo_code, len(results[2])))
+            log("INFO", f"--IPF--: Geocode {geo_code} converged in {len(results[2])} iterations")
 
             # Round the floating point answers to integers (will still be floats)
             results_rounded = results[0].copy()

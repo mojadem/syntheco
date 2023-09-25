@@ -42,18 +42,22 @@ class UniformHouseholdSampling:
             households
         """
         try:
-            pums_deriv_df = house_samp_inst.fitting_result.data['Derived PUMS']
-            pums_deriv_df = pums_deriv_df.sort_values(by=['GEO_CODE', 'HH_ID'])
-            border_gml = house_samp_inst.input_params['census_input_files']['border_gml']
-            border_gdf = gpd.read_file(border_gml).to_crs("WGS 84")
+            if house_samp_inst.pums_data_tables.is_separate():
+                pums_deriv_df = house_samp_inst.fitting_result.data['Derived PUMS']['Household']
+            else:
+                pums_deriv_df = house_samp_inst.fitting_result.data['Derived PUMS']
 
+            pums_deriv_df = pums_deriv_df.sort_values(by=['GEO_CODE', 'HH_ID'])
+            border_gdf = house_samp_inst.border_tables.data
+
+            print(border_gdf)
             hh_df = pums_deriv_df[['HH_ID', 'GEO_CODE']].drop_duplicates()
             hh_dict = {}
 
             hh_freq = hh_df.groupby('GEO_CODE').size()
             hh_args = []
             for gc, n in hh_freq.items():
-                gc_border_gdf = border_gdf.loc[border_gdf['CTUID'] == float(gc)]
+                gc_border_gdf = border_gdf.loc[border_gdf['GEO_UNIT'] == gc]
                 hh_args.append([gc, gc_border_gdf, n])
 
             with mp.Manager() as manager:
@@ -62,10 +66,12 @@ class UniformHouseholdSampling:
                 with manager.Pool(house_samp_inst.input_params["parallel_num_cores"]) as pool:
                     res = pool.map(UniformHouseholdSampling._select_house_coordinates_helper, argList)
                 hh_dict = dict(hh_dict_p)
+
             hh_df['latlon'] = hh_df.apply(lambda x: hh_dict[x['GEO_CODE']].pop(), axis=1)
             hh_df['longitude'] = hh_df.apply(lambda x: x['latlon'][0], axis=1)
             hh_df['latitude'] = hh_df.apply(lambda x: x['latlon'][1], axis=1)
             hh_df = hh_df.drop(columns=['latlon'])
+            print(hh_df)
             return {"Household Geographic Assignments": hh_df}
 
         except Exception as e:
@@ -81,7 +87,11 @@ class UniformHouseholdSampling:
 
     @staticmethod
     def _select_house_coordinates(hh_dict, geo_code, border_gdf, n):
-        geocode_gdf = border_gdf.loc[border_gdf['CTUID'] == float(geo_code)]
+        print(f"{geo_code}")
+        print(f"{type(border_gdf)}")
+        print(f"{border_gdf}")
+        geocode_gdf = border_gdf.loc[border_gdf['GEO_UNIT'] == geo_code]
+        print(f"here {geo_code}")
         coords = []
         while len(coords) < n:
             random_point = Point(rn.uniform(geocode_gdf.bounds['minx'], geocode_gdf.bounds['maxx']),

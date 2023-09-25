@@ -1,11 +1,13 @@
-'census_year': 2020
+'census_year': 2021
 'census_converter': 'us'
 'census_high_res_geo_unit': 'county'
-'census_low_res_geo_unit': 'state:10'
+'census_low_res_geo_unit': '10'
 'census_fitting_vars': ['BDSP']
 'output_log_file': 'us.out.txt'
 'output_data_log_file': 'us_data_out.txt'
 'census_fitting_procedure': 'ipf'
+'census_household_sampling_procedure': 'uniform'
 'debug_limit_geo_codes': 10
-'parallel_num_cores': 4
+'parallel_num_cores': 1
+'census_data_dir': "/Users/shawn.thomas.brown/Programs/branch/syntheco/data"
 'api_key': 'e3061d8962ee2b9822717e18093c29337bca18df'

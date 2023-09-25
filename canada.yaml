@@ -4,10 +4,12 @@
 'census_low_res_geo_unit': 462
 'census_fitting_vars': ['AGEGRP', 'HDGREE', "HHSIZE", "TOTINC"]
 'census_input_files':
-  'profile_data_csv': '/home/mojadem/PHDL/SynthEco/data/98-401-X2016043_English_CSV_data.csv'
-  'pums_h_csv':  '/home/mojadem/PHDL/SynthEco/data/pumf-98M0002-E-2016-hierarchical_F1.csv'
+  'profile_data_csv': '/Users/shawn.thomas.brown/Programs/Canada_BSTs/Data/2011-2016/Profile/98-401-X2016043_English_CSV_data.csv'
+  'pums_h_csv':  '/Users/shawn.thomas.brown/Programs/Canada_BSTs/Data/2011-2016/PUMS/pumf-98M0002-E-2016-hierarchical_F1.csv'
+  'border_gml': '/Users/shawn.thomas.brown/Programs/Canada_BSTs/Data/2011-2016/Borders/lct_000b16g_e.gml'
 'output_log_file': 'canada.out.txt'
 'output_data_log_file': 'canada_data_out.txt'
 'census_fitting_procedure': 'ipf'
-'debug_limit_geo_codes': 10
+'census_household_sampling_procedure': 'uniform'
+'debug_limit_geo_codes': 5
 'parallel_num_cores': 4
