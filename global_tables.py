@@ -32,6 +32,9 @@ class GlobalTables:
         for x in self.data.values():
             if isinstance(x, pd.DataFrame):
                 return_str += f"{x.name}\n{x}\n"
+            elif isinstance(x, dict):
+                for n, v in list(x.items())[1:10]:
+                    return_str += f"{n}: {v}\n"
             else:
                 return_str += f"{x[1:10]}\n"
         return return_str

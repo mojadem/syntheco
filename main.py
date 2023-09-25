@@ -72,7 +72,6 @@ def main():
     log("INFO", "Border Converter Created")
     border_tables = BorderTables(geo_unit_=ip['census_high_res_geo_unit'],
                                  converter_=bord_table_conv)
-    print(f"{border_tables.data}")
     log("INFO", "Border Tables Created")
 
     log("INFO", "Setting up Census Converters")
@@ -107,7 +106,7 @@ def main():
         out_house_coords = "{}.households_coords.csv".format(ip['output_prefix'])
         out_households = "{}.households.csv".format(ip['output_prefix'])
         out_people = "{}.people.csv".format(ip['output_prefix'])
-        print(type(census_fitting_result.data['Derived PUMS']))
+        
         census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house_coords, index=False)
         if isinstance(census_fitting_result.data['Derived PUMS'], dict):
             census_fitting_result.data['Derived PUMS']['Person'].to_csv(out_people, index=False)

@@ -50,7 +50,6 @@ class UniformHouseholdSampling:
             pums_deriv_df = pums_deriv_df.sort_values(by=['GEO_CODE', 'HH_ID'])
             border_gdf = house_samp_inst.border_tables.data
 
-            print(border_gdf)
             hh_df = pums_deriv_df[['HH_ID', 'GEO_CODE']].drop_duplicates()
             hh_dict = {}
 
@@ -71,7 +70,7 @@ class UniformHouseholdSampling:
             hh_df['longitude'] = hh_df.apply(lambda x: x['latlon'][0], axis=1)
             hh_df['latitude'] = hh_df.apply(lambda x: x['latlon'][1], axis=1)
             hh_df = hh_df.drop(columns=['latlon'])
-            print(hh_df)
+
             return {"Household Geographic Assignments": hh_df}
 
         except Exception as e:
@@ -87,11 +86,7 @@ class UniformHouseholdSampling:
 
     @staticmethod
     def _select_house_coordinates(hh_dict, geo_code, border_gdf, n):
-        print(f"{geo_code}")
-        print(f"{type(border_gdf)}")
-        print(f"{border_gdf}")
         geocode_gdf = border_gdf.loc[border_gdf['GEO_UNIT'] == geo_code]
-        print(f"here {geo_code}")
         coords = []
         while len(coords) < n:
             random_point = Point(rn.uniform(geocode_gdf.bounds['minx'], geocode_gdf.bounds['maxx']),
