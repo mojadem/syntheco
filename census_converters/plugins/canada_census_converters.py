@@ -195,7 +195,7 @@ class CanadaCensusSummaryPlugin:
 
                 sum_df = sum_df.drop(columns={'{}_ind'.format(var)})
                 # scale the NaNs in left by the average value of the CMA and scaled down to the population in that area
-                averages = sum_df.groupby(var).mean()
+                averages = sum_df.groupby(var)['total'].mean()
 
                 # Capture case where all variables are 0, right now make them all even cause
                 # I don't know what else to do with them
