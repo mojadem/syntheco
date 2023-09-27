@@ -1,0 +1,32 @@
+This is an instruction manual on how to run syntheco on Beluga through an apptainer container.
+
+The basic idea is that there is a container on dockerhub that contains a run environment that has
+everything needed to run syntheco, save the data and the source code. This way, you can run various versions
+of syntheco without having to pull another container.
+
+To run:
+
+1. Log into Beluga
+2. Load apptainer module
+
+> module load apptainer
+
+3. pull the appropriate image from dockerhub, which will create a new file called syntheco_0.9.8.sif
+
+> apptainer pull docker://shots47s/syntheco_0.9.8
+
+4. clone the syntheco code from github
+
+5. In contrib in the syntheco code is an example slurm batch script to run in parallel over a whole node.
+   Make a new directory and copy the run script (run.canada.beluga.sh) and the input file (canada.bel.yaml)
+   into this directory.
+
+6. I have placed the Canada Census data in the following directory: project/rrg-ldube/Data/2011-2016. 
+  The input and run script should have this as the data directory.
+
+7. Edit the run script and input file for anything that you have changed in this procedure and then you 
+   can sbatch the run file.
+
+8. The input is currently set up for Montreal, it takes about an hour to run the procedure.
+
+9. When finished, there should be new csv files in your directory with the synthetic population.
