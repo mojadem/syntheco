@@ -21,6 +21,7 @@ plugin_map = {'ipf': {'module': 'census_fitting_procedures.plugins.ipf_census_fi
               'ipf_sep_p_h': {'module': 'census_fitting_procedures.plugins.ipt_census_with_separate_p_h_file',
                               'class': 'IPFCensusHouseholdWithSeparatePHFilesProcedure'}}
 
+
 def initialize(fitting_procedure):
     """
     initializes
