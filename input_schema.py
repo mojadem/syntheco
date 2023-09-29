@@ -18,6 +18,7 @@ _schema_specs = {
         Optional("output_log_file", default="sytheco_out.txt"): str,
         Optional("output_data_log_file", default="syntheco_data_out.txt"): str,
         Optional("output_prefix", default="syntheco_population"): str,
+        Optional("output_format", default="csv"): str,
         Optional("ipf_max_iterations", default=10000): int,
         Optional("ipf_fail_on_nonconvergence", default=False): bool,
         Optional("ipf_convergence_rate", default=1.0e-5): float,
