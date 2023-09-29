@@ -7,6 +7,7 @@ import argparse
 from census_converters.census_converter import CensusConverter
 from census_fitting_procedures.census_fitting_procedure import CensusFittingProcedure
 from census_household_sampling.census_household_sampling import CensusHouseholdSampling
+from output_formatters.output_formatter import OutputFormatter
 
 from input import InputParams
 from global_tables import GlobalTables
@@ -95,24 +96,14 @@ def main():
     census_fitting_result = CensusFittingResult(converter_=census_fitting_procedure)
 
     data_log(f"{census_fitting_result}")
-    if ip['census_household_sampling_procedure'] != "None":
-        log("INFO", "Sampling Households from fitting results")
-        census_household_sampling_proc = CensusHouseholdSampling(ip, census_fitting_result,
-                                                                 pums_heir_tables, global_tables, border_tables)
-        census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
-        data_log(f"{census_sampling_result}")
+    log("INFO", "Sampling Households from fitting results")
+    census_household_sampling_proc = CensusHouseholdSampling(ip, census_fitting_result,
+                                                             pums_heir_tables, global_tables, border_tables)
+    census_sampling_result = CensusHouseholdSamplingResult(sampling_proc_=census_household_sampling_proc)
+    data_log(f"{census_sampling_result}")
 
-        log("INFO", "outputting csvs")
-        out_house_coords = "{}.households_coords.csv".format(ip['output_prefix'])
-        out_households = "{}.households.csv".format(ip['output_prefix'])
-        out_people = "{}.people.csv".format(ip['output_prefix'])
-        
-        census_sampling_result.data['Household Geographic Assignments'].to_csv(out_house_coords, index=False)
-        if isinstance(census_fitting_result.data['Derived PUMS'], dict):
-            census_fitting_result.data['Derived PUMS']['Person'].to_csv(out_people, index=False)
-            census_fitting_result.data['Derived PUMS']['Household'].to_csv(out_households, index=False)
-        else:
-            census_fitting_result.data['Derived PUMS'].to_csv(out_people, index=False)
+    output_writer = OutputFormatter(ip, census_fitting_result, census_sampling_result)
+    output_writer.write_output()
 
 
 if __name__ == "__main__":
