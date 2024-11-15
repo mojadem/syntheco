@@ -149,10 +149,20 @@ class USCensusGlobalPlugin:
             the raw data table from the US Census data
         """
         ip = cens_conv_inst.input_params
-        if ip.input_params["use_census_api"]:
-            return USCensusGlobalPlugin._read_raw_data_into_pandas_from_api(ip)
-        else:
-            return USCensusGlobalPlugin._read_raw_data_into_pandas_from_file(ip)
+        raw_df = (
+            USCensusGlobalPlugin._read_raw_data_into_pandas_from_api(ip)
+            if ip.input_params["use_census_api"]
+            else USCensusGlobalPlugin._read_raw_data_into_pandas_from_file(ip)
+        )
+
+        raw_df = raw_df.rename(
+            columns={
+                "DP05_0001E": "total_population",
+                "DP04_0001E": "number_households",
+            }
+        )
+
+        return raw_df
 
     @staticmethod
     def _read_raw_data_into_pandas_from_api(ip):
@@ -161,11 +171,11 @@ class USCensusGlobalPlugin:
         """
 
         api_vars = [
-            "P1_001N",  # total population data
-            "H1_001N",  # total housing data
+            "DP05_0001E",  # total population data
+            "DP04_0001E",  # total housing data
         ]
 
-        url = "/{}/dec/pl".format(ip["census_year"])
+        url = "/{}/acs/acs5/profile".format(ip["census_year"])
         params = {
             "get": ",".join(api_vars),
             "for": "{}:*".format(ip["census_high_res_geo_unit"]),
@@ -220,12 +230,6 @@ class USCensusGlobalPlugin:
                     ]
                 ),
                 axis=1,
-            )
-            raw_df = raw_df.rename(
-                columns={
-                    "DP05_0001E": "total_population",
-                    "DP04_0001E": "number_households",
-                }
             )
             raw_df = raw_df.set_index("GEO_CODE")
             return raw_df
@@ -471,7 +475,7 @@ class USCensusPUMSPlugin:
             url = "/{}/acs/acs5/pums".format(ip["census_year"])
             params = {
                 "get": ",".join(api_vars),
-                "for": "{}".format(ip["census_low_res_geo_unit"]),
+                "for": "state:{}".format(ip["census_low_res_geo_unit"]),
                 "key": ip["api_key"],
             }
 
